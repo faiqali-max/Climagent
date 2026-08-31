@@ -1,0 +1,31 @@
+app = "climagent"
+
+[env]
+PORT = "8080"
+CLIMAGENT_DB = "/data/climagent.db"
+CLIMAGENT_STORAGE = "/data/storage"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[[services]]
+  http_checks = []
+  internal_port = 8080
+  processes = ["app"]
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 100
+    soft_limit = 50
+
+[[mounts]]
+  source = "data"
+  destination = "/data"

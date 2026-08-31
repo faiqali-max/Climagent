@@ -20,7 +20,7 @@ from lib.llm import AgentConfigError
 load_dotenv()
 BASE_DIR = Path(__file__).parent
 FRONTEND_DIR = BASE_DIR / "frontend"
-STORAGE_DIR = BASE_DIR / "storage"
+STORAGE_DIR = Path(os.getenv("CLIMAGENT_STORAGE", str(BASE_DIR / "storage")))
 ALLOWED_EXT = {"csv", "xlsx", "xls", "json"}
 MAX_UPLOAD = 30 * 1024 * 1024
 

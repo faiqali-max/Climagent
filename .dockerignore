@@ -1,0 +1,12 @@
+.env
+.env.local
+climagent.db
+*.sqlite
+*.sqlite3
+storage/
+uploads/
+__pycache__/
+*.py[cod]
+.git
+.gitignore
+.monkeycode-tmp-files/
