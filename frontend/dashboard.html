@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Dashboard - Climagent</title><link rel="stylesheet" href="style.css"><link rel="icon" type="image/x-icon" href="/assets/favicon.ico"></head>
+<body>
+<div class="topbar">
+  <div class="logo brand"><img src="/assets/logo.png" alt="Climagent logo"><span>CLIMAGENT</span></div>
+  <button class="burger" id="burger" aria-label="Menu">&#9776;</button>
+  <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode"><span class="theme-ico-night">&#9789;</span><span class="theme-ico-day">&#9728;</span></button>
+  <nav id="nav">
+    <a class="nav-link active" href="/dashboard.html">Dashboard</a>
+    <a class="nav-link" href="/workspace.html">AI Workspace</a>
+    <a class="nav-link" href="/map.html">Map</a>
+    <a class="nav-link" href="/data.html">Data Analysis</a>
+    <a class="nav-link" href="/construction.html">Construction</a>
+    <a class="nav-link" href="/cooling.html">Urban Cooling</a>
+    <a class="nav-link" href="/monitoring.html">Monitoring</a>
+    <a class="nav-link" href="/reports.html">Reports</a>
+    <a class="nav-link" id="admin-link" href="/admin.html" style="display:none">Admin</a>
+    <span id="plan-badge" style="font-size:13px;font-weight:700;color:var(--accent)"></span>
+    <button class="logout" onclick="logout()">Logout</button>
+  </nav>
+</div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div class="logo brand"><img src="/assets/logo.png" alt="Climagent logo"><span>CLIMAGENT</span></div>
+    <button class="mini" onclick="closeDrawer()">Close</button>
+  </div>
+</div>
+<div class="drawer-overlay" id="drawer-overlay"></div>
+<main>
+  <div class="coverage" style="margin-bottom:14px">
+    <span class="tag live">&#9679; Real-Time Data Collection</span>
+    <span class="tag">Coverage: All FortyGuard Regions</span>
+  </div>
+  <div id="earn-card"></div>
+  <h2>Dashboard</h2><p class="sub">Overview of projects, usage, monitors, alerts, and agent activity.</p>
+  <div class="grid" id="stats"></div>
+  <div id="ads-slot" style="margin-bottom:18px"></div>
+  <div class="card"><h3>Agent activity</h3><div id="activity"></div></div>
+  <div class="card"><h3>Active monitoring tasks</h3><div id="monitors"></div></div>
+  <div class="card"><h3>Alerts</h3><div id="alerts"></div></div>
+</main>
+<div class="modal" id="optin-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeOptin()">&#10005;</button>
+    <h3>Opt-in to Real-Time Data Collection</h3>
+    <p class="sub">Request expanded <b>real-time data collection</b> across <b>all FortyGuard regions</b>. Your request is auto-acknowledged on submission.</p>
+    <div id="optin-status" class="sub" style="font-weight:600;color:var(--accent)"></div>
+    <div class="check-list">
+      <label><input type="checkbox" value="temperature" name="optin-types"> Temperature</label>
+      <label><input type="checkbox" value="forecast" name="optin-types"> Forecast</label>
+      <label><input type="checkbox" value="heatmap" name="optin-types"> Heatmap</label>
+      <label><input type="checkbox" value="humidity" name="optin-types"> Humidity</label>
+      <label><input type="checkbox" value="air_quality" name="optin-types"> Air quality</label>
+      <label><input type="checkbox" value="solar_irradiance" name="optin-types"> Solar irradiance</label>
+    </div>
+    <div class="fields">
+      <input id="optin-name" class="txt" placeholder="Name (optional)">
+      <input id="optin-email" class="txt" type="email" placeholder="Email (optional)">
+    </div>
+    <textarea id="optin-message" class="txt" placeholder="Anything else? (optional)" style="margin-bottom:10px"></textarea>
+    <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;margin-bottom:10px;cursor:pointer">
+      <input type="checkbox" id="optin-consent"> I consent to real-time climate data collection in my selected regions.
+    </label>
+    <div id="optin-err" class="err"></div>
+    <div id="optin-ok" class="status" style="text-align:center;color:var(--success)"></div>
+    <div class="actions"><button class="primary" onclick="submitOptin()">Submit Request</button></div>
+  </div>
+</div>
+<script src="static/app.js"></script>
+<script>
+async function logout(){try{await api('/api/auth/logout',{method:'POST'});}catch(e){}localStorage.removeItem('climagent_token');location.href='/auth.html';}
+async function init(){
+  const user=(await authed());if(!user){location.href='/auth.html';return;}
+  $('#plan-badge').textContent=user.plan;$('#plan-badge').dataset.plan=user.plan;
+  if(user.role==='admin')$('#admin-link').style.display='';
+  loadEarn('earn-card',user.plan);
+  try{const a=await api('/api/ads');if(a.ads&&a.ads.length){const ad=a.ads[0];$('#ads-slot').innerHTML=`<div class="card" style="padding:12px;display:flex;align-items:center;gap:12px"><b>${esc(ad.title)}</b><span class="sub" style="margin:0;flex:1">${esc(ad.body)}</span><span class="level ok">Sponsored</span></div>`;}}catch(e){}
+  let usage={usage:{}},projects={projects:[]},monitors={monitors:[]},alerts={alerts:[]},acts={timeline:[]};
+  try{usage=await api('/api/usage');}catch(e){}
+  try{projects=await api('/api/projects');}catch(e){}
+  try{monitors=await api('/api/monitors');}catch(e){}
+  try{alerts=await api('/api/alerts');}catch(e){}
+  try{acts=await api('/api/activity?limit=8');}catch(e){}
+  const u=usage.usage||{};
+  $('#stats').innerHTML=[
+    ['Projects',u.projects||0],['AI requests today',u.ai_requests||0],['Monitors',u.monitors||0],
+    ['Uploads',u.uploads||0],['Alerts',alerts.alerts.length],
+    ['Plan',usage.plan||user.plan]
+  ].map(([l,v])=>`<div class="stat-card"><div class="val">${v}</div><div class="lbl">${l}</div></div>`).join('');
+  $('#monitors').innerHTML=(monitors.monitors||[]).length?monitors.monitors.slice(0,5).map(m=>{
+    let last='no runs yet';try{last=JSON.parse(m.last_result||'{}').recommendation||'no runs yet';}catch(e){}
+    return`<div class="list-item"><div class="row"><span class="level ${esc(m.status)}">${esc(m.status)}</span><span class="grow"><b>${esc(m.query)}</b><div class="meta">every ${m.interval_min} min - ${m.run_count}/${m.max_runs} runs - ${fmtTs(m.last_run_at)}</div></span></div><div class="meta">${esc(last)}</div></div>`;}).join(''):'<div class="list-item">No monitors.</div>';
+  $('#alerts').innerHTML=(alerts.alerts||[]).length?alerts.alerts.slice(0,5).map(a=>`<div class="list-item"><span class="level ${esc(a.level.toLowerCase())}">${esc(a.level)}</span> ${esc(a.message)}<div class="meta">${fmtTs(a.created_at)}</div></div>`).join(''):'<div class="list-item">No alerts.</div>';
+  $('#activity').innerHTML=(acts.timeline||[]).length?acts.timeline.map(x=>`<div class="list-item"><div class="row"><span class="level ${x.status==='error'?'error':'ok'}">${esc(x.kind)}</span><span class="grow">${x.tool?`<b>${esc(x.tool)}</b>`:''} ${esc((x.output||x.input||'').slice(0,90))}<div class="meta">${fmtTs(x.created_at)}${x.duration_ms?` - ${Math.round(x.duration_ms)}ms`:''}</div></span></div></div>`).join(''):'<div class="list-item">No activity yet.</div>';
+}
+init();
+</script>
+</body></html>

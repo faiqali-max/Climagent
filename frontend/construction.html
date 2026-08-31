@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Construction - Climagent</title><link rel="stylesheet" href="style.css"><link rel="icon" type="image/x-icon" href="/assets/favicon.ico"><script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script></head>
+<body>
+<div class="topbar">
+  <div class="logo brand"><img src="/assets/logo.png" alt="Climagent logo"><span>CLIMAGENT</span></div>
+  <button class="burger" id="burger" aria-label="Menu">&#9776;</button>
+  <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode"><span class="theme-ico-night">&#9789;</span><span class="theme-ico-day">&#9728;</span></button>
+  <nav>
+    <a class="nav-link" href="/dashboard.html">Dashboard</a>
+    <a class="nav-link" href="/workspace.html">AI Workspace</a>
+    <a class="nav-link" href="/map.html">Map</a>
+    <a class="nav-link" href="/data.html">Data Analysis</a>
+    <a class="nav-link active" href="/construction.html">Construction</a>
+    <a class="nav-link" href="/cooling.html">Urban Cooling</a>
+    <a class="nav-link" href="/monitoring.html">Monitoring</a>
+    <a class="nav-link" href="/reports.html">Reports</a>
+    <a class="nav-link" id="admin-link" href="/admin.html" style="display:none">Admin</a>
+    <span id="plan-badge" style="font-size:13px;font-weight:700;color:var(--accent)"></span>
+    <button class="logout" onclick="logout()">Logout</button>
+  </nav>
+</div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div class="logo brand"><img src="/assets/logo.png" alt="Climagent logo"><span>CLIMAGENT</span></div>
+    <button class="mini" onclick="closeDrawer()">Close</button>
+  </div>
+</div>
+<div class="drawer-overlay" id="drawer-overlay"></div>
+<main>
+  <div class="coverage" style="margin-bottom:14px">
+    <span class="tag live">&#9679; Real-Time Data Collection</span>
+    <span class="tag">Coverage: All FortyGuard Regions</span>
+  </div>
+  <h2>Construction Planning Workspace</h2><p class="sub">Create construction projects, add locations, and generate heat-aware safety plans.</p>
+  <div class="card">
+    <h3>New construction project</h3>
+    <div class="fields">
+      <input id="name" placeholder="Project name">
+      <input id="lat" type="number" step="any" placeholder="Latitude">
+      <input id="lon" type="number" step="any" placeholder="Longitude">
+    </div>
+    <textarea id="desc" class="txt" placeholder="Project description / scope"></textarea>
+    <div class="actions"><button class="primary" onclick="createProject()">Create Project</button></div>
+    <div id="err" class="err"></div>
+  </div>
+  <div class="card">
+    <h3>Generate heat-aware safety plan</h3>
+    <div class="fields"><select id="cp"></select></div>
+    <div class="actions"><button class="primary" onclick="generatePlan()">Generate Plan</button></div>
+    <div id="status" class="status"></div>
+    <div id="planout"></div>
+  </div>
+  <div class="card"><h3>My construction projects</h3><div id="list"></div></div>
+</main>
+<script src="static/app.js"></script>
+<script>
+let cons=[];
+async function logout(){try{await api('/api/auth/logout',{method:'POST'});}catch(e){}localStorage.removeItem('climagent_token');location.href='/auth.html';}
+async function init(){
+  const user=(await authed());if(!user){location.href='/auth.html';return;}
+  $('#plan-badge').textContent=user.plan;if(user.role==='admin')$('#admin-link').style.display='';loadList();
+}
+async function createProject(){
+  hideErr('err');
+  const lat=parseFloat($('lat').value),lon=parseFloat($('lon').value);
+  const loc=(!isNaN(lat)&&!isNaN(lon))?{lat,lon}:{};
+  try{
+    await api('/api/construction',{method:'POST',body:JSON.stringify({name:$('name').value.trim(),description:$('desc').value.trim(),location:loc,schedule:{},plan:''})});
+    $('name').value='';$('desc').value='';loadList();
+  }catch(e){showErr('err',e.message);}
+}
+async function loadList(){
+  try{cons=(await api('/api/construction')).projects||[];$('#cp').innerHTML=cons.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')||'<option value="">No projects</option>';
+  $('#list').innerHTML=cons.map(x=>`<div class="list-item"><div class="row"><span class="level ok">${esc(x.name)}</span><span class="grow">${esc(x.description||'')}<div class="meta">${fmtTs(x.created_at)}${x.plan?' - plan saved':''}</div></span><button class="mini" onclick="viewPlan(${x.id})">View Plan</button><button class="mini danger" onclick="delC(${x.id})">Delete</button></div></div>`).join('')||'<div class="list-item">No projects yet.</div>';}catch(e){}
+}
+async function generatePlan(){
+  hideErr('err');
+  const id=$('cp').value;if(!id){showErr('err','Create a project first.');return;}
+  const p=cons.find(c=>c.id==parseInt(id));if(!p)return;
+  let loc={};try{loc=JSON.parse(p.location||'{}');}catch(e){}
+  const btn=event.target;btn.disabled=true;$('#status').textContent='Construction Planning Agent working (fetching data, building schedule, safety plan)...';$('#planout').innerHTML='';
+  try{
+    const lat=loc.lat||25.2,lon=loc.lon||55.27;
+    const out=await api('/api/chat',{method:'POST',body:JSON.stringify({message:`Create a heat-aware construction plan and worker safety schedule for the project "${p.name}" at lat ${lat} lon ${lon}. Include safe working windows, breaks, hydration, and emergency readiness. Use forecast and heat stress data.`,location:{lat,lon}})});
+    $('#planout').innerHTML=`<div class="reply">${safeMarked(out.reply)}</div>`;
+    await api('/api/construction/'+id,{method:'PATCH',body:JSON.stringify({plan:out.reply})});
+    loadList();
+  }catch(e){showErr('err',e.message);}
+  finally{btn.disabled=false;$('#status').textContent='';}
+}
+function viewPlan(id){const p=cons.find(c=>c.id==parseInt(id));if(p&&p.plan){$('#planout').innerHTML=`<div class="reply">${safeMarked(p.plan)}</div>`;}else{$('#planout').innerHTML='<div class="status">No saved plan. Generate one above.</div>';}}
+async function delC(id){try{await api('/api/construction/'+id,{method:'DELETE'});loadList();}catch(e){}}
+init();
+</script>
+</body></html>

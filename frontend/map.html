@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Map - Climagent</title><link rel="stylesheet" href="style.css"><link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script></head>
+<body>
+<div class="topbar">
+  <div class="logo brand"><img src="/assets/logo.png" alt="Climagent logo"><span>CLIMAGENT</span></div>
+  <button class="burger" id="burger" aria-label="Menu">&#9776;</button>
+  <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode"><span class="theme-ico-night">&#9789;</span><span class="theme-ico-day">&#9728;</span></button>
+  <nav>
+    <a class="nav-link" href="/dashboard.html">Dashboard</a>
+    <a class="nav-link" href="/workspace.html">AI Workspace</a>
+    <a class="nav-link active" href="/map.html">Map</a>
+    <a class="nav-link" href="/data.html">Data Analysis</a>
+    <a class="nav-link" href="/construction.html">Construction</a>
+    <a class="nav-link" href="/cooling.html">Urban Cooling</a>
+    <a class="nav-link" href="/monitoring.html">Monitoring</a>
+    <a class="nav-link" href="/reports.html">Reports</a>
+    <a class="nav-link" id="admin-link" href="/admin.html" style="display:none">Admin</a>
+    <span id="plan-badge" style="font-size:13px;font-weight:700;color:var(--accent)"></span>
+    <button class="logout" onclick="logout()">Logout</button>
+  </nav>
+</div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div class="logo brand"><img src="/assets/logo.png" alt="Climagent logo"><span>CLIMAGENT</span></div>
+    <button class="mini" onclick="closeDrawer()">Close</button>
+  </div>
+</div>
+<div class="drawer-overlay" id="drawer-overlay"></div>
+<main>
+  <div class="coverage" style="margin-bottom:14px">
+    <span class="tag live">&#9679; Real-Time Data Collection</span>
+    <span class="tag">Coverage: All FortyGuard Regions</span>
+  </div>
+  <h2>Geographic Intelligence</h2><p class="sub">Your monitored and project locations with heat-risk coloring. Click the map to add a location.</p>
+  <div class="fields">
+    <input id="lat" type="number" step="any" placeholder="Latitude">
+    <input id="lon" type="number" step="any" placeholder="Longitude">
+    <input id="name" placeholder="Location name">
+    <button class="primary" onclick="addProject()">Add Location</button>
+  </div>
+  <div id="map" style="height:480px;border:1px solid var(--line);border-radius:14px;margin-bottom:18px"></div>
+  <div class="card"><h3>High-risk locations</h3><div id="highrisk"></div></div>
+</main>
+<script src="static/app.js"></script>
+<script>
+let map,markers=[],defaults=[];
+async function logout(){try{await api('/api/auth/logout',{method:'POST'});}catch(e){}localStorage.removeItem('climagent_token');location.href='/auth.html';}
+async function init(){
+  const user=(await authed());if(!user){location.href='/auth.html';return;}
+  $('#plan-badge').textContent=user.plan;if(user.role==='admin')$('#admin-link').style.display='';
+  map=L.map('map').setView([25.2,55.27],4);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}).addTo(map);
+  map.on('click',e=>{$('lat').value=e.latlng.lat.toFixed(4);$('lon').value=e.latlng.lng.toFixed(4);});
+  loadLocations();
+}
+function colorOf(risk){risk=(risk||'').toLowerCase();if(risk==='extreme'||risk==='high')return '#f87171';if(risk==='moderate')return '#fbbf24';return '#34d399';}
+async function loadLocations(){
+  markers.forEach(m=>map.removeLayer(m));markers=[];defaults=[];
+  let projects=[],monitors={monitors:[]};
+  try{projects=(await api('/api/projects')).projects||[];}catch(e){}
+  try{monitors=await api('/api/monitors');}catch(e){}
+  const items=[];
+  projects.forEach(p=>{let loc={};try{loc=JSON.parse(p.location||'{}');}catch(e){}if(loc.lat!=null)items.push({name:p.name,lat:loc.lat,lon:loc.lon,risk:'low',kind:'project'});});
+  (monitors.monitors||[]).forEach(m=>{let risk='low';try{risk=JSON.parse(m.last_result||'{}').risk_level||'low';}catch(e){}items.push({name:m.query,lat:m.lat,lon:m.lon,risk,kind:'monitor'});});
+  items.forEach(it=>{
+    const c=colorOf(it.risk);
+    const m=L.circleMarker([it.lat,it.lon],{radius:9,color:c,fillColor:c,fillOpacity:.7}).addTo(map).bindPopup(`<b>${esc(it.name)}</b><br>${esc(it.kind)} - risk: ${esc(it.risk)}`);
+    markers.push(m);defaults.push(it);
+  });
+  const high=defaults.filter(d=>['high','extreme'].includes(d.risk));
+  $('#highrisk').innerHTML=high.length?high.map(h=>`<div class="list-item"><span class="level ${esc(h.risk)}">${esc(h.risk)}</span> ${esc(h.name)}<div class="meta">lat ${h.lat}, lon ${h.lon}</div></div>`).join(''):'<div class="list-item">No high-risk locations yet.</div>';
+}
+async function addProject(){
+  const lat=parseFloat($('lat').value),lon=parseFloat($('lon').value);
+  if(isNaN(lat)||isNaN(lon)){alert('Enter valid coordinates (or click map).');return;}
+  const name=$('name').value.trim()||'Location '+('('+lat.toFixed(2)+','+lon.toFixed(2)+')');
+  try{await api('/api/projects',{method:'POST',body:JSON.stringify({name,description:'',location:{lat,lon}})});$('name').value='';loadLocations();}catch(e){alert(e.message);}
+}
+init();
+</script>
+</body></html>

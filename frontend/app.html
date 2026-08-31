@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Climagent Workspace</title><link rel="stylesheet" href="style.css"><link rel="icon" type="image/x-icon" href="/assets/favicon.ico"><script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script></head>
+<body>
+<div class="topbar">
+  <div class="logo brand"><img src="/assets/logo.png" alt="Climagent logo"><span>CLIMAGENT</span></div>
+  <button class="burger" id="burger" aria-label="Menu">&#9776;</button>
+  <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode"><span class="theme-ico-night">&#9789;</span><span class="theme-ico-day">&#9728;</span></button>
+  <nav id="nav">
+    <a class="nav-link" href="/dashboard.html">Dashboard</a>
+    <a class="nav-link" href="/workspace.html">AI Workspace</a>
+    <a class="nav-link" href="/map.html">Map</a>
+    <a class="nav-link" href="/data.html">Data Analysis</a>
+    <a class="nav-link" href="/construction.html">Construction</a>
+    <a class="nav-link" href="/cooling.html">Urban Cooling</a>
+    <a class="nav-link" href="/monitoring.html">Monitoring</a>
+    <a class="nav-link" href="/reports.html">Reports</a>
+    <a class="nav-link" id="admin-link" href="/admin.html" style="display:none">Admin</a>
+    <span id="plan-badge" style="font-size:13px;font-weight:700;color:var(--accent)"></span>
+    <button class="logout" onclick="logout()">Logout</button>
+  </nav>
+</div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div class="logo brand"><img src="/assets/logo.png" alt="Climagent logo"><span>CLIMAGENT</span></div>
+    <button class="mini" onclick="closeDrawer()">Close</button>
+  </div>
+</div>
+<div class="drawer-overlay" id="drawer-overlay"></div>
+<main>
+  <div class="coverage" style="margin-bottom:14px">
+    <span class="tag live">&#9679; Real-Time Data Collection</span>
+    <span class="tag">Coverage: All FortyGuard Regions</span>
+  </div>
+  <div id="earn-card"></div>
+  <div class="chips" id="chips"></div>
+  <div id="ads-slot" style="margin-bottom:18px"></div>
+  <div id="page-content">Redirecting...</div>
+</main>
+<div class="modal" id="optin-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeOptin()">&#10005;</button>
+    <h3>Opt-in to Real-Time Data Collection</h3>
+    <p class="sub">Request expanded <b>real-time data collection</b> across <b>all FortyGuard regions</b>. Your request is auto-acknowledged on submission.</p>
+    <div id="optin-status" class="sub" style="font-weight:600;color:var(--accent)"></div>
+    <div class="check-list">
+      <label><input type="checkbox" value="temperature" name="optin-types"> Temperature</label>
+      <label><input type="checkbox" value="forecast" name="optin-types"> Forecast</label>
+      <label><input type="checkbox" value="heatmap" name="optin-types"> Heatmap</label>
+      <label><input type="checkbox" value="humidity" name="optin-types"> Humidity</label>
+      <label><input type="checkbox" value="air_quality" name="optin-types"> Air quality</label>
+      <label><input type="checkbox" value="solar_irradiance" name="optin-types"> Solar irradiance</label>
+    </div>
+    <div class="fields">
+      <input id="optin-name" class="txt" placeholder="Name (optional)">
+      <input id="optin-email" class="txt" type="email" placeholder="Email (optional)">
+    </div>
+    <textarea id="optin-message" class="txt" placeholder="Anything else? (optional)" style="margin-bottom:10px"></textarea>
+    <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;margin-bottom:10px;cursor:pointer">
+      <input type="checkbox" id="optin-consent"> I consent to real-time climate data collection in my selected regions.
+    </label>
+    <div id="optin-err" class="err"></div>
+    <div id="optin-ok" class="status" style="text-align:center;color:var(--success)"></div>
+    <div class="actions"><button class="primary" onclick="submitOptin()">Submit Request</button></div>
+  </div>
+</div>
+<script src="static/app.js"></script>
+<script>
+async function loadAds(){
+  try{
+    const a=await api('/api/ads');
+    let html='';
+    if(a.config&&a.config.provider==='adsense'&&a.config.client_id&&a.config.slot_id){
+      html=`<div class="card" style="padding:8px"><ins class="adsbygoogle" style="display:block" data-ad-client="${esc(a.config.client_id)}" data-ad-slot="${esc(a.config.slot_id)}" data-ad-format="auto" data-full-width-responsive="true"></ins></div>`;
+      if(!window.adsbygoogle&&!document.querySelector('script[data-adsense]')){
+        const s=document.createElement('script');s.async=true;s.dataset.adsense='1';
+        s.src='https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client='+encodeURIComponent(a.config.client_id);
+        document.head.appendChild(s);
+      }
+      try{(window.adsbygoogle=window.adsbygoogle||[]).push({});}catch(e){}
+    }else if(a.ads&&a.ads.length){
+      const ad=a.ads[0];
+      html=`<div class="card" style="padding:12px;display:flex;align-items:center;gap:12px"><b>${esc(ad.title)}</b><span class="sub" style="margin:0;flex:1">${esc(ad.body)}</span><button class="mini" onclick="watchAd(${ad.id})">Watch ad +1 view</button></div>`;
+    }
+    if(a.show_ads){ $('#ads-slot').innerHTML=html; }
+    else { $('#ads-slot').innerHTML=''; }
+  }catch(e){}
+}
+async function watchAd(id){
+  try{const r=await api('/api/ads/view',{method:'POST',body:JSON.stringify({ad_id:id})});
+    refreshCredits(); const c=(r.progress&&r.progress.costs)||{};
+    if(r.credit_balance!=null) alert(`+1 credit! Balance: ${r.credit_balance}. Costs: search ${c.search||1}, upload ${c.upload||2}, monitor run ${c.agent_run||1}.`);
+    else alert('Please wait a moment before watching this ad again.');
+  }catch(e){alert(e.message);}
+}
+async function refreshCredits(){
+  try{const c=await api('/api/credits');const badge=$('#plan-badge');
+    badge.textContent=(badge.dataset.plan||'')+' | Credits: '+c.balance;
+  }catch(e){}
+}
+async function init(){
+  const user=(await authed());
+  if(!user){location.href='/auth.html';return;}
+  $('#plan-badge').dataset.plan=user.plan;
+  $('#plan-badge').textContent=user.plan;
+  if(user.role==='admin')$('#admin-link').style.display='';
+  loadEarn('earn-card',user.plan);
+  try{
+    const c=await api('/api/config');
+    $('#chips').innerHTML=[
+      {t:'LLM',ok:c.llm_configured},{t:'FortyGuard',ok:c.fortyguard_configured},{t:'LangSmith',ok:c.langsmith_configured},
+      {t:'Gemini',ok:c.gateways&&c.gateways.google_gemini},{t:'AdSense',ok:c.gateways&&c.gateways.adsense}
+    ].map(x=>`<span class="chip ${x.ok?'ok':'bad'}">${x.t}: ${x.ok?'yes':'not set'}</span>`).join('');
+    $('#page-content').innerHTML='<a href="/dashboard.html"><button class="primary">Open Dashboard</button></a> <a href="/workspace.html"><button class="secondary">Open AI Workspace</button></a>';
+  }catch(e){}
+  loadAds();
+}
+async function logout(){try{await api('/api/auth/logout',{method:'POST'});}catch(e){}localStorage.removeItem('climagent_token');location.href='/auth.html';}
+init();
+</script>
+</body></html>

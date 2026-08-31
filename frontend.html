@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Climagent - Climate, Heat Intelligence &amp; Decision Platform</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0b1220;--panel:#111a2e;--panel2:#0e1626;--line:#1f2b45;--text:#e6edf7;--muted:#8fa3bf;--accent:#2dd4bf;--accent2:#38bdf8;--warn:#fbbf24;--danger:#f87171}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+header{display:flex;align-items:center;gap:14px;padding:16px 28px;border-bottom:1px solid var(--line);background:linear-gradient(90deg,#0f3a33,#0b2447);flex-wrap:wrap}
+.logo{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:800;color:#04121a;font-size:18px}
+.brand h1{font-size:18px;letter-spacing:.5px}
+.brand small{color:var(--muted)}
+nav{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.tab{padding:7px 13px;border-radius:8px;cursor:pointer;color:var(--muted);border:1px solid transparent;background:none;font-size:13px}
+.tab.active{background:var(--panel);color:var(--text);border-color:var(--line)}
+main{max-width:1000px;margin:0 auto;padding:24px 20px 80px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+.chip{background:var(--panel);border:1px solid var(--line);color:var(--muted);padding:3px 10px;border-radius:99px;font-size:12px}
+.chip.ok{color:var(--accent);border-color:#1d3a4d}
+.chip.bad{color:var(--warn)}
+.section{display:none}
+.section.active{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:18px}
+h2{font-size:16px;margin-bottom:6px}
+p.sub{color:var(--muted);font-size:13px;margin-bottom:14px}
+.fields{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.fields input,.fields select{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px}
+.fields input{min-width:130px;flex:1}
+.quick{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.qb{background:var(--panel2);border:1px solid var(--line);color:var(--accent2);border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer}
+.qb:hover{border-color:var(--accent2)}
+textarea{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:12px;font-size:14px;min-height:90px;resize:vertical;font-family:inherit}
+input.txt{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px;font-size:14px}
+.actions{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+button.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#04121a;border:none;border-radius:10px;padding:10px 18px;font-weight:700;cursor:pointer;font-size:14px}
+button.secondary{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:9px 16px;cursor:pointer;font-size:13px}
+button.mini{background:var(--panel2);border:1px solid var(--line);color:var(--accent2);border-radius:7px;padding:4px 10px;cursor:pointer;font-size:12px}
+button:disabled{opacity:.5;cursor:wait}
+button.danger{color:var(--danger)}
+.status{font-size:13px;color:var(--muted);margin-top:10px}
+.err{background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.4);color:var(--danger);border-radius:10px;padding:12px;margin-top:12px}
+.reply{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:16px;line-height:1.7;font-size:14px}
+.reply h1,.reply h2,.reply h3{margin:14px 0 6px;color:var(--text)}
+.reply ul,.reply ol{margin:6px 0 6px 20px}
+.reply li{margin:3px 0}
+.reply code{background:#0a1424;padding:1px 5px;border-radius:5px;font-size:12px}
+.reply pre{background:#0a1424;padding:10px;border-radius:8px;overflow:auto}
+.reply table{border-collapse:collapse;margin:8px 0}
+.reply td,.reply th{border:1px solid var(--line);padding:5px 9px;font-size:13px}
+.trace{margin-top:14px}
+.trace summary{cursor:pointer;color:var(--muted);font-size:13px}
+.tstep{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-top:6px;font-size:12px}
+.tstep b{color:var(--accent2)}
+.tstep .args{color:var(--muted);font-family:monospace;font-size:11px;word-break:break-all}
+.tstep .res{color:var(--muted);margin-top:4px;font-family:monospace;font-size:11px;white-space:pre-wrap}
+.badge{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:1px 8px;font-size:11px;color:var(--accent);margin:2px 3px 0 0}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-top:14px}
+.chart-card{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px}
+.chart-card h4{font-size:13px;color:var(--muted);margin-bottom:8px;text-align:center}
+canvas{max-height:240px}
+.upload-zone{border:2px dashed var(--line);border-radius:12px;padding:26px;text-align:center;color:var(--muted);cursor:pointer;margin-bottom:12px}
+.upload-zone.drag{border-color:var(--accent);color:var(--text)}
+.upload-zone input{display:none}
+#statsTable td{padding:4px 8px;font-size:12px;color:var(--muted)}
+.list-item{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:8px;font-size:13px}
+.list-item .meta{color:var(--muted);font-size:11px;margin-top:4px}
+.list-item .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.list-item .grow{flex:1}
+.level{font-size:10px;padding:1px 7px;border-radius:99px;font-weight:700}
+.level.high,.level.extreme,.level.error{background:rgba(248,113,113,.2);color:var(--danger)}
+.level.moderate,.level.advisory{background:rgba(251,191,36,.18);color:var(--warn)}
+.level.low,.level.ok,.level.auto{background:rgba(45,212,191,.15);color:var(--accent)}
+.level.pending{background:rgba(56,189,248,.15);color:var(--accent2)}
+table.admin{width:100%;border-collapse:collapse;margin-top:8px}
+table.admin td,table.admin th{border:1px solid var(--line);padding:6px 9px;font-size:12px;text-align:left;color:var(--muted)}
+@media(max-width:640px){main{padding:16px 12px}.fields input{min-width:100%}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">C</div>
+  <div class="brand">
+    <h1>CLIMAGENT</h1>
+    <small>Climate, Heat Intelligence &amp; Decision Platform</small>
+  </div>
+  <nav>
+    <button class="tab active" data-tab="ask">Ask Climagent</button>
+    <button class="tab" data-tab="data">Data Analysis</button>
+    <button class="tab" data-tab="monitor">Monitoring</button>
+    <button class="tab" data-tab="memory">Memory &amp; Activity</button>
+    <button class="tab" data-tab="admin">Admin</button>
+  </nav>
+</header>
+<main>
+  <div class="chips" id="chips"></div>
+
+  <section id="ask" class="section active">
+    <div class="card">
+      <h2>Agentic climate intelligence</h2>
+      <p class="sub">The Manager Agent breaks down your question, delegates to specialized agents (12 total), validates critical outputs with the QA Agent, stores context, and pulls live FortyGuard data to verify every answer.</p>
+      <div class="fields">
+        <input id="lat" type="number" step="any" placeholder="Latitude (optional)">
+        <input id="lon" type="number" step="any" placeholder="Longitude (optional)">
+        <input id="date" type="date" placeholder="Date (optional)">
+      </div>
+      <div class="quick">
+        <button class="qb" data-q="Is this construction site safe for outdoor work tomorrow at lat 25.20 lon 55.27? Use risk analysis and forecast data.">Construction safety</button>
+        <button class="qb" data-q="Create a safe heat-aware work schedule for a construction project in Phoenix (lat 33.45, lon -112.07) this week.">Worker schedule</button>
+        <button class="qb" data-q="Assess extreme heat risk for downtown Phoenix (lat 33.4484, lon -112.0740) today and give public safety recommendations.">Heat risk assessment</button>
+        <button class="qb" data-q="Create a prioritized urban cooling plan for the hottest district of this city using heatmap and historical data.">Urban cooling plan</button>
+        <button class="qb" data-q="Build a 5-phase climate change mitigation action plan for a coastal city based on local environmental data.">Climate action plan</button>
+        <button class="qb" data-q="My building is overheating in the afternoon. Recommend HVAC scheduling and energy optimization for the coming days.">HVAC optimization</button>
+      </div>
+      <textarea id="message" placeholder="Ask anything about heat, climate, urban cooling, worker safety, HVAC, construction planning, or sustainability..."></textarea>
+      <div class="actions">
+        <button class="primary" id="sendBtn">Run agents</button>
+      </div>
+      <div class="status" id="askStatus"></div>
+      <div class="err" id="askErr" style="display:none"></div>
+      <div id="askOutput"></div>
+    </div>
+  </section>
+
+  <section id="data" class="section">
+    <div class="card">
+      <h2>Data Analysis Agent</h2>
+      <p class="sub">Upload a CSV, Excel, or JSON file. The agent autonomously inspects missing values, anomalies, trends, correlations, and explains findings.</p>
+      <div class="upload-zone" id="drop">
+        <input type="file" id="file" accept=".csv,.xlsx,.xls,.json">
+        <p>Click or drop a file here (max 30 MB)</p>
+      </div>
+      <div class="actions">
+        <button class="primary" id="analyzeBtn">Analyze</button>
+      </div>
+      <div class="status" id="dataStatus"></div>
+      <div class="err" id="dataErr" style="display:none"></div>
+      <div id="dataOutput"></div>
+    </div>
+  </section>
+
+  <section id="monitor" class="section">
+    <div class="card">
+      <h2>Continuous monitoring loop</h2>
+      <p class="sub">Schedule the agentic loop to observe a location, fetch updated data, compare with the previous run, and trigger alerts when thresholds are reached. Runs are bounded (max runs) and can be stopped at any time.</p>
+      <div class="fields">
+        <input id="mLat" type="number" step="any" placeholder="Latitude">
+        <input id="mLon" type="number" step="any" placeholder="Longitude">
+        <input id="mInterval" type="number" step="any" value="60" placeholder="Interval (minutes)">
+        <input id="mMax" type="number" value="30" placeholder="Max runs">
+      </div>
+      <input id="mQuery" class="txt" placeholder="What to monitor, e.g. Heat risk at the construction site; alert if HIGH or EXTREME">
+      <div class="actions">
+        <button class="primary" id="monitorBtn">Start monitor</button>
+        <button class="secondary" id="refreshMonitors">Refresh</button>
+      </div>
+      <div class="status" id="monitorStatus"></div>
+      <div class="err" id="monitorErr" style="display:none"></div>
+      <div id="monitorList"></div>
+      <h2 style="margin-top:18px">Alerts</h2>
+      <div class="actions"><button class="secondary" id="readAlerts">Mark alerts read</button></div>
+      <div id="alertList"></div>
+    </div>
+  </section>
+
+  <section id="memory" class="section">
+    <div class="card">
+      <h2>Memory &amp; Context Agent</h2>
+      <p class="sub">Persistent long-term memory (preferences, projects, locations, plans, decisions). The Manager Agent retrieves relevant context automatically and stores new durable facts after each run.</p>
+      <div class="fields">
+        <select id="memKind">
+          <option value="context">context</option>
+          <option value="preference">preference</option>
+          <option value="project">project</option>
+          <option value="location">location</option>
+          <option value="plan">plan</option>
+          <option value="decision">decision</option>
+        </select>
+        <input id="memContent" placeholder="Add a memory, e.g. Preferred temperature units: Fahrenheit">
+        <button class="primary" id="memAdd">Save</button>
+        <button class="secondary danger" id="memClear">Clear all memory</button>
+      </div>
+      <div class="status" id="memStatus"></div>
+      <div class="err" id="memErr" style="display:none"></div>
+      <div id="memList"></div>
+      <h2 style="margin-top:18px">Agent activity timeline</h2>
+      <div id="activityList"></div>
+    </div>
+  </section>
+
+  <section id="admin" class="section">
+    <div class="card">
+      <h2>Human-in-the-loop mode</h2>
+      <p class="sub">Suggestion = AI only recommends. Approval = AI prepares high-impact actions and waits for approval. Automated = only low-risk authorized actions run automatically, all logged.</p>
+      <div class="fields">
+        <select id="hitlMode">
+          <option value="suggestion">Suggestion Mode</option>
+          <option value="approval">Approval Mode</option>
+          <option value="automated">Automated Mode</option>
+        </select>
+        <button class="primary" id="saveMode">Save mode</button>
+      </div>
+      <div class="status" id="adminStatus"></div>
+    </div>
+    <div class="card">
+      <h2>Pending approvals</h2>
+      <div id="approvalList"></div>
+    </div>
+    <div class="card">
+      <h2>Evaluation system</h2>
+      <p class="sub">Task completion, error rate, tool selection, average run time.</p>
+      <table class="admin" id="evalTable"></table>
+    </div>
+    <div class="card">
+      <h2>Failed runs (admin)</h2>
+      <div id="failedRuns"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const escapeHtml = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+const md = s => marked.parse(escapeHtml(s));
+const $ = id => document.getElementById(id);
+let charts = [];
+
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+  document.querySelectorAll(".section").forEach(x => x.classList.remove("active"));
+  t.classList.add("active");
+  $(t.dataset.tab).classList.add("active");
+  if(t.dataset.tab === "monitor") loadMonitors();
+  if(t.dataset.tab === "memory") loadMemory();
+  if(t.dataset.tab === "admin") loadAdmin();
+});
+
+document.querySelectorAll(".qb").forEach(b => b.onclick = () => { $("message").value = b.dataset.q; });
+
+async function api(path, opts){
+  const r = await fetch(path, opts);
+  const out = await r.json().catch(() => ({}));
+  if(!r.ok) throw new Error(out.error || ("HTTP " + r.status));
+  return out;
+}
+function showErr(el, msg){ el.textContent = msg; el.style.display = "block"; }
+function hideErr(el){ el.style.display = "none"; }
+function fmtTs(ts){ return ts ? new Date(ts*1000).toLocaleString() : ""; }
+function clearCharts(){ charts.forEach(c => { try{c.destroy();}catch(e){} }); charts = []; }
+
+async function loadConfig(){
+  try{
+    const c = await api("/api/config");
+    const chips = [
+      {t:"LLM configured", ok:c.llm_configured},
+      {t:"FortyGuard data", ok:c.fortyguard_configured},
+      {t:"LangSmith tracing", ok:c.langsmith_configured}
+    ];
+    $("chips").innerHTML = chips.map(x => `<span class="chip ${x.ok?"ok":"bad"}">${escapeHtml(x.t)}: ${x.ok?"yes":"not set"}</span>`).join("");
+  }catch(e){}
+}
+loadConfig();
+
+function renderTrace(trace){
+  if(!trace || !trace.length) return "";
+  const items = trace.map(t => {
+    const inner = (t.steps && t.steps.length)
+      ? `<div style="margin:4px 0 0 14px;color:var(--muted)">agent steps: ${t.steps.map(s=>`<span class="badge">${escapeHtml(s)}</span>`).join(" ")}</div>` : "";
+    return `<div class="tstep"><b>${escapeHtml(t.tool)}</b><div class="args">${escapeHtml(t.args)}</div>${inner}${t.result?`<div class="res">${escapeHtml(t.result)}</div>`:""}</div>`;
+  }).join("");
+  return `<div class="trace"><details><summary>Agent trace (${trace.length} steps)</summary>${items}</details></div>`;
+}
+
+function renderReply(out){
+  let agents = (out.agents_used||[]).map(a => `<span class="badge">${escapeHtml(a)}</span>`).join("");
+  const mode = out.mode ? `<span class="badge">mode: ${escapeHtml(out.mode)}</span>` : "";
+  return `<div class="reply">${md(out.reply)}</div>${(agents||mode)?`<div style="margin-top:8px">${agents}${mode}</div>`:""}${renderTrace(out.trace)}`;
+}
+
+async function ask(){
+  hideErr($("askErr")); clearCharts();
+  const message = $("message").value.trim();
+  if(!message){ showErr($("askErr"), "Please enter a question."); return; }
+  const lat = parseFloat($("lat").value), lon = parseFloat($("lon").value);
+  const location = (!isNaN(lat) && !isNaN(lon)) ? {lat, lon} : {};
+  const btn = $("sendBtn"); btn.disabled = true;
+  $("askStatus").textContent = "Manager Agent is planning and delegating...";
+  $("askOutput").innerHTML = "";
+  try{
+    const out = await api("/api/chat", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({message, location, date: $("date").value || ""})});
+    $("askOutput").innerHTML = renderReply(out);
+  }catch(e){ showErr($("askErr"), e.message); }
+  finally{ btn.disabled = false; $("askStatus").textContent = ""; }
+}
+$("sendBtn").onclick = ask;
+$("message").addEventListener("keydown", e => { if(e.key === "Enter" && (e.ctrlKey || e.metaKey)) ask(); });
+
+function renderCharts(data){
+  clearCharts();
+  const wrap = document.createElement("div"); wrap.className = "charts"; $("dataOutput").appendChild(wrap);
+  const colors = ["#2dd4bf","#38bdf8","#fbbf24","#f472b6","#a78bfa","#34d399"];
+  if(data.histograms && Object.keys(data.histograms).length){
+    Object.entries(data.histograms).forEach(([col,h]) => {
+      const card = document.createElement("div"); card.className = "chart-card";
+      card.innerHTML = `<h4>${escapeHtml(col)} - distribution</h4><canvas></canvas>`;
+      wrap.appendChild(card);
+      charts.push(new Chart(card.querySelector("canvas"), {type:"bar", data:{labels:h.labels, datasets:[{label:col, data:h.values, backgroundColor:colors[0]}]},
+        options:{plugins:{legend:{display:false}}}}));
+    });
+  }
+  if(data.correlations && data.correlations.columns.length > 1){
+    const card = document.createElement("div"); card.className = "chart-card";
+    card.innerHTML = `<h4>Correlation (first column vs others)</h4><canvas></canvas>`;
+    wrap.appendChild(card);
+    const d = data.correlations;
+    const bg = d.matrix[0].map((v,j) => j===0 ? "rgba(45,212,191,0.6)" : v > 0 ? `rgba(56,189,248,${Math.min(1,Math.abs(v))})` : `rgba(248,113,113,${Math.min(1,Math.abs(v))})`);
+    charts.push(new Chart(card.querySelector("canvas"), {type:"bar", data:{labels:d.columns, datasets:[{label:"correlation", data:d.matrix[0], backgroundColor:bg}]},
+      options:{plugins:{legend:{display:false}}}}));
+  }
+  if(data.series && data.series.length){
+    data.series.forEach((s,i) => {
+      const card = document.createElement("div"); card.className = "chart-card";
+      card.innerHTML = `<h4>${escapeHtml(s.label)}</h4><canvas></canvas>`;
+      wrap.appendChild(card);
+      charts.push(new Chart(card.querySelector("canvas"), {type:"line", data:{labels:s.labels, datasets:[{label:s.label, data:s.values, borderColor:colors[i%colors.length], fill:false, pointRadius:0}]},
+        options:{plugins:{legend:{display:false}}, scales:{x:{ticks:{color:"#8fa3bf", maxTicksLimit:6}}}}));
+    });
+  }
+  if(!wrap.children.length) wrap.remove();
+}
+
+function renderAnalysis(out){
+  $("dataOutput").innerHTML = "";
+  const reply = document.createElement("div"); reply.className = "reply"; reply.innerHTML = md(out.explanation);
+  $("dataOutput").appendChild(reply);
+  renderCharts(out.data || {});
+  if(out.data && out.data.shape){
+    const stats = document.createElement("div"); stats.className = "reply";
+    const cols = (out.data.file_columns||[]).map(c => {
+      const miss = out.data.missing ? out.data.missing[c.name] : 0;
+      return `<tr><td>${escapeHtml(c.name)}</td><td>${escapeHtml(c.dtype)}</td><td>${miss}</td></tr>`;
+    }).join("");
+    stats.innerHTML = `<h3>Dataset overview</h3><table><tr><th>Column</th><th>Type</th><th>Missing</th></tr>${cols}</table>`;
+    $("dataOutput").appendChild(stats);
+  }
+  if(out.data && out.data.anomalies && Object.keys(out.data.anomalies).length){
+    const a = document.createElement("div"); a.className = "reply";
+    a.innerHTML = "<h3>Detected anomalies</h3><ul>" + Object.entries(out.data.anomalies).map(([c,v]) => `<li>${escapeHtml(c)}: ${v.length} rows beyond 3 std devs</li>`).join("") + "</ul>";
+    $("dataOutput").appendChild(a);
+  }
+}
+
+async function analyze(){
+  hideErr($("dataErr")); clearCharts();
+  const file = $("file").files[0];
+  if(!file){ showErr($("dataErr"), "Please choose a file first."); return; }
+  const btn = $("analyzeBtn"); btn.disabled = true;
+  $("dataStatus").textContent = "Data Analysis Agent is inspecting the dataset...";
+  $("dataOutput").innerHTML = "";
+  const fd = new FormData(); fd.append("file", file);
+  try{
+    const out = await api("/api/analyze", {method:"POST", body: fd});
+    renderAnalysis(out);
+  }catch(e){ showErr($("dataErr"), e.message); }
+  finally{ btn.disabled = false; $("dataStatus").textContent = ""; }
+}
+$("analyzeBtn").onclick = analyze;
+const drop = $("drop");
+drop.onclick = () => $("file").click();
+$("file").onchange = () => { if($("file").files[0]) $("drop").querySelector("p").textContent = $("file").files[0].name; };
+["dragover","dragenter"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("drag"); }));
+["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("drag"); }));
+drop.addEventListener("drop", e => { if(e.dataTransfer.files.length){ $("file").files = e.dataTransfer.files; $("drop").querySelector("p").textContent = e.dataTransfer.files[0].name; } });
+
+function levelClass(l){ return (l||"").toLowerCase().replace("pending-approval","pending"); }
+
+async function loadMonitors(){
+  hideErr($("monitorErr"));
+  try{
+    const m = await api("/api/monitors");
+    $("monitorList").innerHTML = (m.monitors||[]).map(x => {
+      let last = "no runs yet";
+      try{ last = JSON.parse(x.last_result||"{}").recommendation || x.last_result || "no runs yet"; }catch(e){}
+      return `<div class="list-item"><div class="row"><span class="level ${x.status==='active'?'ok':'pending'}">${escapeHtml(x.status)}</span><span class="grow"><b>${escapeHtml(x.query)}</b><div class="meta">lat ${x.lat}, lon ${x.lon} - every ${x.interval_min} min - ${x.run_count}/${x.max_runs} runs - last: ${fmtTs(x.last_run_at)}</div><div class="meta">${escapeHtml(last)}</div></span>
+      <button class="mini" onclick="stopMonitor(${x.id})">Stop</button>
+      <button class="mini danger" onclick="delMonitor(${x.id})">Delete</button></div></div>`;
+    }).join("") || "<div class='list-item'>No monitors yet.</div>";
+    const a = await api("/api/alerts");
+    $("alertList").innerHTML = (a.alerts||[]).map(x =>
+      `<div class="list-item"><div class="row"><span class="level ${levelClass(x.level)}">${escapeHtml(x.level)}</span><span class="grow">${escapeHtml(x.message)}<div class="meta">${fmtTs(x.created_at)}</div></span></div></div>`
+    ).join("") || "<div class='list-item'>No alerts.</div>";
+  }catch(e){ showErr($("monitorErr"), e.message); }
+}
+async function startMonitor(){
+  hideErr($("monitorErr"));
+  const lat = parseFloat($("mLat").value), lon = parseFloat($("mLon").value);
+  const query = $("mQuery").value.trim();
+  if(isNaN(lat) || isNaN(lon)){ showErr($("monitorErr"), "Enter valid latitude and longitude."); return; }
+  if(!query){ showErr($("monitorErr"), "Describe what to monitor."); return; }
+  try{
+    await api("/api/monitors", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({query, lat, lon, interval_min: parseFloat($("mInterval").value)||60, max_runs: parseInt($("mMax").value)||30})});
+    $("monitorStatus").textContent = "Monitor scheduled.";
+    $("mQuery").value = "";
+    loadMonitors();
+  }catch(e){ showErr($("monitorErr"), e.message); }
+}
+async function stopMonitor(id){ try{ await api(`/api/monitors/${id}/stop`, {method:"POST"}); loadMonitors(); }catch(e){} }
+async function delMonitor(id){ try{ await api(`/api/monitors/${id}`, {method:"DELETE"}); loadMonitors(); }catch(e){} }
+$("monitorBtn").onclick = startMonitor;
+$("refreshMonitors").onclick = loadMonitors;
+$("readAlerts").onclick = async () => { try{ await api("/api/alerts/read", {method:"POST"}); loadMonitors(); }catch(e){} };
+
+async function loadMemory(){
+  hideErr($("memErr"));
+  try{
+    const mem = await api("/api/memory");
+    $("memList").innerHTML = (mem.memories||[]).map(x =>
+      `<div class="list-item"><div class="row"><span class="badge">${escapeHtml(x.kind)}</span><span class="grow">${escapeHtml(x.content)}<div class="meta">${fmtTs(x.created_at)}</div></span><button class="mini danger" onclick="delMem(${x.id})">Delete</button></div></div>`
+    ).join("") || "<div class='list-item'>No saved memory yet.</div>";
+    const act = await api("/api/activity?limit=40");
+    $("activityList").innerHTML = (act.timeline||[]).map(x =>
+      `<div class="list-item"><div class="row"><span class="level ${x.status==='error'?'error':'ok'}">${escapeHtml(x.kind)}</span><span class="grow">${x.tool?`<b>${escapeHtml(x.tool)}</b>`:""} ${escapeHtml((x.output||x.input||"").slice(0,140))}<div class="meta">${fmtTs(x.created_at)}${x.duration_ms?` - ${Math.round(x.duration_ms)} ms`:""}${x.tokens?` - ${x.tokens} tokens`:""}</div></span></div></div>`
+    ).join("") || "<div class='list-item'>No activity yet.</div>";
+  }catch(e){ showErr($("memErr"), e.message); }
+}
+$("memAdd").onclick = async () => {
+  const content = $("memContent").value.trim();
+  if(!content) return;
+  try{ await api("/api/memory", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({content, kind: $("memKind").value})});
+    $("memContent").value=""; loadMemory(); }catch(e){ showErr($("memErr"), e.message); }
+};
+async function delMem(id){ try{ await api(`/api/memory/${id}`, {method:"DELETE"}); loadMemory(); }catch(e){} }
+$("memClear").onclick = async () => { if(confirm("Clear all saved memory?")){ try{ await api("/api/memory", {method:"DELETE"}); loadMemory(); }catch(e){ showErr($("memErr"), e.message); } } };
+
+async function loadAdmin(){
+  hideErr($("adminStatus"));
+  try{
+    const mode = await api("/api/settings/hitl-mode");
+    $("hitlMode").value = mode.mode;
+    const ap = await api("/api/approvals");
+    $("approvalList").innerHTML = (ap.approvals||[]).map(x =>
+      `<div class="list-item"><div class="row"><span class="level pending">pending</span><span class="grow"><b>${escapeHtml(x.action)}</b><div class="meta">${escapeHtml(x.payload)}</div></span>
+      <button class="mini" onclick="decide(${x.id},true)">Approve</button><button class="mini danger" onclick="decide(${x.id},false)">Reject</button></div></div>`
+    ).join("") || "<div class='list-item'>No pending approvals.</div>";
+    const ev = await api("/api/admin/evaluation");
+    $("evalTable").innerHTML = `<tr><th>Runs</th><th>Completion</th><th>Errors</th><th>Error rate</th><th>Avg duration</th><th>Activity 24h</th></tr>
+      <tr><td>${ev.runs}</td><td>${ev.completion_rate}%</td><td>${ev.errors}</td><td>${ev.error_rate}%</td><td>${ev.avg_duration_ms} ms</td><td>${ev.activity_last_24h}</td></tr>
+      <tr><th colspan="6">Top tools</th></tr>${(ev.tool_usage||[]).map(t=>`<tr><td colspan="6">${escapeHtml(t.tool)} x ${t.c}</td></tr>`).join("")}
+      <tr><th colspan="6">Agents used</th></tr>${(ev.agent_usage||[]).map(t=>`<tr><td colspan="6">${escapeHtml(t.agent)} x ${t.c}</td></tr>`).join("")}`;
+    const fr = await api("/api/admin/runs");
+    $("failedRuns").innerHTML = (fr.failed_runs||[]).map(x =>
+      `<div class="list-item"><b>${escapeHtml(x.error||"error")}</b><div class="meta">${fmtTs(x.created_at)} - ${escapeHtml((x.input||"").slice(0,120))}</div></div>`
+    ).join("") || "<div class='list-item'>No failed runs.</div>";
+  }catch(e){ showErr($("adminStatus"), e.message); }
+}
+$("saveMode").onclick = async () => {
+  try{ await api("/api/settings/hitl-mode", {method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({mode: $("hitlMode").value})});
+    $("adminStatus").textContent = "HITL mode saved."; }catch(e){ showErr($("adminStatus"), e.message); }
+};
+async function decide(id, approve){ try{ await api(`/api/approvals/${id}/decide`, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({approve})}); loadAdmin(); }catch(e){} }
+</script>
+</body>
+</html>

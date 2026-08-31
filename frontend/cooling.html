@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Urban Cooling - Climagent</title><link rel="stylesheet" href="style.css"><link rel="icon" type="image/x-icon" href="/assets/favicon.ico"><script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script></head>
+<body>
+<div class="topbar">
+  <div class="logo brand"><img src="/assets/logo.png" alt="Climagent logo"><span>CLIMAGENT</span></div>
+  <button class="burger" id="burger" aria-label="Menu">&#9776;</button>
+  <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode"><span class="theme-ico-night">&#9789;</span><span class="theme-ico-day">&#9728;</span></button>
+  <nav>
+    <a class="nav-link" href="/dashboard.html">Dashboard</a>
+    <a class="nav-link" href="/workspace.html">AI Workspace</a>
+    <a class="nav-link" href="/map.html">Map</a>
+    <a class="nav-link" href="/data.html">Data Analysis</a>
+    <a class="nav-link" href="/construction.html">Construction</a>
+    <a class="nav-link active" href="/cooling.html">Urban Cooling</a>
+    <a class="nav-link" href="/monitoring.html">Monitoring</a>
+    <a class="nav-link" href="/reports.html">Reports</a>
+    <a class="nav-link" id="admin-link" href="/admin.html" style="display:none">Admin</a>
+    <span id="plan-badge" style="font-size:13px;font-weight:700;color:var(--accent)"></span>
+    <button class="logout" onclick="logout()">Logout</button>
+  </nav>
+</div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div class="logo brand"><img src="/assets/logo.png" alt="Climagent logo"><span>CLIMAGENT</span></div>
+    <button class="mini" onclick="closeDrawer()">Close</button>
+  </div>
+</div>
+<div class="drawer-overlay" id="drawer-overlay"></div>
+<main>
+  <div class="coverage" style="margin-bottom:14px">
+    <span class="tag live">&#9679; Real-Time Data Collection</span>
+    <span class="tag">Coverage: All FortyGuard Regions</span>
+  </div>
+  <h2>Climate & Urban Cooling Workspace</h2><p class="sub">Select locations, analyze heat risk, generate cooling plans, and save them.</p>
+  <div class="card">
+    <div class="fields">
+      <input id="lat" type="number" step="any" placeholder="Latitude" value="33.45">
+      <input id="lon" type="number" step="any" placeholder="Longitude" value="-112.07">
+      <input id="name" placeholder="City / area name" value="Phoenix">
+    </div>
+    <div class="actions">
+      <button class="primary" onclick="analyzeRisk()">Analyze Heat Risk</button>
+      <button class="secondary" onclick="generatePlan()">Generate Cooling Plan</button>
+    </div>
+    <div id="err" class="err"></div><div id="status" class="status"></div>
+    <div id="out"></div>
+  </div>
+  <div class="card"><h3>Saved plans</h3><div id="saved"></div></div>
+</main>
+<script src="static/app.js"></script>
+<script>
+let lastContent='';
+async function logout(){try{await api('/api/auth/logout',{method:'POST'});}catch(e){}localStorage.removeItem('climagent_token');location.href='/auth.html';}
+async function init(){
+  const user=(await authed());if(!user){location.href='/auth.html';return;}
+  $('#plan-badge').textContent=user.plan;if(user.role==='admin')$('#admin-link').style.display='';loadSaved();
+}
+function loc(){return{lat:parseFloat($('lat').value),lon:parseFloat($('lon').value)};}
+async function analyzeRisk(){
+  hideErr('err');const l=loc();if(isNaN(l.lat)||isNaN(l.lon)){showErr('err','Enter valid coordinates.');return;}
+  const btn=event.target;btn.disabled=true;$('#status').textContent='Analyzing heat risk with live data...';
+  try{
+    const out=await api('/api/chat',{method:'POST',body:JSON.stringify({message:`Assess extreme heat risk for ${$('name').value||'this area'} at lat ${l.lat} lon ${l.lon} today using environmental parameters and heat stress data. Give a public safety verdict.`,location:l})});
+    $('#out').innerHTML=`<div class="reply">${safeMarked(out.reply)}</div>`;lastContent=out.reply;
+  }catch(e){showErr('err',e.message);}
+  finally{btn.disabled=false;$('#status').textContent='';}
+}
+async function generatePlan(){
+  hideErr('err');const l=loc();if(isNaN(l.lat)||isNaN(l.lon)){showErr('err','Enter valid coordinates.');return;}
+  const btn=event.target;btn.disabled=true;$('#status').textContent='Urban Cooling Planner working...';
+  try{
+    const out=await api('/api/chat',{method:'POST',body:JSON.stringify({message:`Create a prioritized urban cooling plan for the hottest district of ${$('name').value||'this city'} at lat ${l.lat} lon ${l.lon} using heatmap, historical temperatures, and heat stress data. Recommend interventions with priorities and expected benefits.`,location:l})});
+    $('#out').innerHTML=`<div class="reply">${safeMarked(out.reply)}</div>`;lastContent=out.reply;
+  }catch(e){showErr('err',e.message);}
+  finally{btn.disabled=false;$('#status').textContent='';}
+}
+async function savePlan(){
+  if(!lastContent){alert('Generate a plan first with a button above (not the workspace).');return;}
+  try{
+    const l=loc();
+    await api('/api/plans',{method:'POST',body:JSON.stringify({kind:'cooling',name:($('name').value||'Cooling plan')+' cooling plan',content:lastContent,location:l})});
+    loadSaved();alert('Plan saved.');
+  }catch(e){showErr('err',e.message);}
+}
+async function loadSaved(){
+  try{const p=await api('/api/plans?kind=cooling');
+  $('#saved').innerHTML=(p.plans||[]).map(x=>`<div class="list-item"><div class="row"><span class="level ok">${esc(x.name)}</span><span class="grow">${fmtTs(x.created_at)}</span><button class="mini" onclick="viewSaved(${x.id})">View</button><button class="mini danger" onclick="delPlan(${x.id})">Delete</button></div></div>`).join('')||'<div class="list-item">No saved plans.</div>';}catch(e){}
+}
+function viewSaved(id){fetchPlan(id).then(c=>{$('#out').innerHTML=`<div class="reply">${safeMarked(c)}</div>`;});}
+async function fetchPlan(id){const p=(await api('/api/plans?kind=cooling')).plans||[];const f=p.find(x=>x.id==id);return f?f.content:'';}
+async function delPlan(id){try{await api('/api/plans/'+id,{method:'DELETE'});loadSaved();}catch(e){}}
+$('name').parentElement.insertAdjacentHTML('beforeend',' <button class="secondary" onclick="savePlan()">Save Plan</button>');
+init();
+</script>
+</body></html>

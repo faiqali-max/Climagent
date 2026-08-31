@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Climagent - Account</title><link rel="stylesheet" href="style.css"><link rel="icon" type="image/x-icon" href="/assets/favicon.ico"><style>
+.auth-box{max-width:420px;margin:60px auto}
+.auth-box h2{text-align:center;margin-bottom:20px}
+.tab-bar{display:flex;gap:0;margin-bottom:16px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.tab-bar button{flex:1;padding:10px;background:var(--panel2);color:var(--muted);border:none;cursor:pointer;font-size:13px}
+.tab-bar button.active{background:var(--panel);color:var(--text)}
+.hidden{display:none}
+</style></head>
+<body>
+<div class="auth-box card">
+  <div class="tab-bar">
+    <button id="tab-login" class="active" onclick="showMode('login')">Login</button>
+    <button id="tab-signup" onclick="showMode('signup')">Sign Up</button>
+  </div>
+  <div id="login-form">
+    <input id="login-email" class="txt" placeholder="Email" type="email" style="margin-bottom:10px">
+    <input id="login-pass" class="txt" placeholder="Password" type="password" style="margin-bottom:10px">
+    <div class="actions"><button class="primary" onclick="doLogin()" id="login-btn">Login</button></div>
+    <div class="sub" style="margin-top:12px;text-align:center"><a href="#" onclick="showMode('forgot')">Forgot password?</a></div>
+  </div>
+  <div id="signup-form" class="hidden">
+    <input id="signup-name" class="txt" placeholder="Name" style="margin-bottom:10px">
+    <input id="signup-email" class="txt" placeholder="Email" type="email" style="margin-bottom:10px">
+    <input id="signup-pass" class="txt" placeholder="Password (min 8 chars)" type="password" style="margin-bottom:10px">
+    <div class="actions"><button class="primary" onclick="doSignup()" id="signup-btn">Create Account</button></div>
+  </div>
+  <div id="forgot-form" class="hidden">
+    <input id="forgot-email" class="txt" placeholder="Your email" type="email" style="margin-bottom:10px">
+    <div class="actions"><button class="primary" onclick="doForgot()" id="forgot-btn">Send Reset Link</button></div>
+    <div class="sub" style="margin-top:12px;text-align:center"><a href="#" onclick="showMode('login')">Back to login</a></div>
+  </div>
+  <div id="reset-form" class="hidden">
+    <input id="reset-token" class="txt" placeholder="Reset token" type="text" style="margin-bottom:10px">
+    <input id="reset-pass" class="txt" placeholder="New password (min 8 chars)" type="password" style="margin-bottom:10px">
+    <div class="actions"><button class="primary" onclick="doReset()" id="reset-btn">Reset Password</button></div>
+  </div>
+  <div id="auth-err" class="err"></div>
+  <div id="auth-ok" class="status" style="text-align:center;color:var(--success)"></div>
+</div>
+<script src="static/app.js"></script>
+<script>
+(function(){
+  const p=new URLSearchParams(location.search);
+  const m=p.get('mode');
+  if(m==='signup')showMode('signup');
+  else if(m==='forgot')showMode('forgot');
+  else if(m==='reset')showMode('reset',p.get('token')||'');
+  if(TOKEN){authed().then(u=>{if(u)location.href='/app.html';});}
+})();
+function showMode(mode,token){
+  ['login-form','signup-form','forgot-form','reset-form'].forEach(id=>$(id).classList.add('hidden'));
+  ['tab-login','tab-signup'].forEach(id=>$(id).classList.remove('active'));
+  hideErr('auth-err');$('auth-ok').textContent='';
+  if(mode==='login'){$('login-form').classList.remove('hidden');$('tab-login').classList.add('active');}
+  else if(mode==='signup'){$('signup-form').classList.remove('hidden');$('tab-signup').classList.add('active');}
+  else if(mode==='forgot'){$('forgot-form').classList.remove('hidden');}
+  else if(mode==='reset'){$('reset-form').classList.remove('hidden');if(token)$('reset-token').value=token;}
+}
+async function doLogin(){
+  hideErr('auth-err');$('auth-ok').textContent='';
+  const email=$('login-email').value.trim(),password=$('login-pass').value;
+  if(!email||!password){showErr('auth-err','Enter email and password.');return;}
+  try{
+    $('login-btn').disabled=true;
+    const r=await api('/api/auth/login',{method:'POST',body:JSON.stringify({email,password})});
+    TOKEN=r.token;localStorage.setItem('climagent_token',TOKEN);
+    location.href='/app.html';
+  }catch(e){showErr('auth-err',e.message);}
+  finally{$('login-btn').disabled=false;}
+}
+async function doSignup(){
+  hideErr('auth-err');$('auth-ok').textContent='';
+  const name=$('signup-name').value.trim(),email=$('signup-email').value.trim(),password=$('signup-pass').value;
+  if(!email||!password){showErr('auth-err','Enter email and password.');return;}
+  try{
+    $('signup-btn').disabled=true;
+    const r=await api('/api/auth/signup',{method:'POST',body:JSON.stringify({name,email,password})});
+    TOKEN=r.token;localStorage.setItem('climagent_token',TOKEN);
+    location.href='/app.html';
+  }catch(e){showErr('auth-err',e.message);}
+  finally{$('signup-btn').disabled=false;}
+}
+async function doForgot(){
+  hideErr('auth-err');$('auth-ok').textContent='';
+  try{
+    $('forgot-btn').disabled=true;
+    await api('/api/auth/forgot',{method:'POST',body:JSON.stringify({email:$('forgot-email').value.trim()})});
+    $('auth-ok').textContent='If an account exists, a reset link has been sent.';
+  }catch(e){showErr('auth-err',e.message);}
+  finally{$('forgot-btn').disabled=false;}
+}
+async function doReset(){
+  hideErr('auth-err');
+  try{
+    $('reset-btn').disabled=true;
+    await api('/api/auth/reset',{method:'POST',body:JSON.stringify({token:$('reset-token').value.trim(),password:$('reset-pass').value})});
+    $('auth-ok').textContent='Password reset. You can now login.';
+  }catch(e){showErr('auth-err',e.message);}
+  finally{$('reset-btn').disabled=false;}
+}
+</script>
+</body></html>

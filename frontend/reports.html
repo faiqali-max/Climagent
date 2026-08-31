@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Reports - Climagent</title><link rel="stylesheet" href="style.css"><link rel="icon" type="image/x-icon" href="/assets/favicon.ico"></head>
+<body>
+<div class="topbar">
+  <div class="logo brand"><img src="/assets/logo.png" alt="Climagent logo"><span>CLIMAGENT</span></div>
+  <button class="burger" id="burger" aria-label="Menu">&#9776;</button>
+  <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode"><span class="theme-ico-night">&#9789;</span><span class="theme-ico-day">&#9728;</span></button>
+  <nav>
+    <a class="nav-link" href="/dashboard.html">Dashboard</a>
+    <a class="nav-link" href="/workspace.html">AI Workspace</a>
+    <a class="nav-link" href="/map.html">Map</a>
+    <a class="nav-link" href="/data.html">Data Analysis</a>
+    <a class="nav-link" href="/construction.html">Construction</a>
+    <a class="nav-link" href="/cooling.html">Urban Cooling</a>
+    <a class="nav-link" href="/monitoring.html">Monitoring</a>
+    <a class="nav-link active" href="/reports.html">Reports</a>
+    <a class="nav-link" id="admin-link" href="/admin.html" style="display:none">Admin</a>
+    <span id="plan-badge" style="font-size:13px;font-weight:700;color:var(--accent)"></span>
+    <button class="logout" onclick="logout()">Logout</button>
+  </nav>
+</div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div class="logo brand"><img src="/assets/logo.png" alt="Climagent logo"><span>CLIMAGENT</span></div>
+    <button class="mini" onclick="closeDrawer()">Close</button>
+  </div>
+</div>
+<div class="drawer-overlay" id="drawer-overlay"></div>
+<main>
+  <div class="coverage" style="margin-bottom:14px">
+    <span class="tag live">&#9679; Real-Time Data Collection</span>
+    <span class="tag">Coverage: All FortyGuard Regions</span>
+  </div>
+  <h2>Reports</h2><p class="sub">Access saved analyses, plans, construction plans, and export as files.</p>
+  <div class="card"><h3>Saved analyses</h3><div id="analyses"></div></div>
+  <div class="card"><h3>Climate & Cooling plans</h3><div id="plans"></div></div>
+  <div class="card"><h3>Construction plans</h3><div id="construction"></div></div>
+  <div class="card"><h3>Conversations</h3><div id="conversations"></div></div>
+</main>
+<script src="static/app.js"></script>
+<script>
+async function logout(){try{await api('/api/auth/logout',{method:'POST'});}catch(e){}localStorage.removeItem('climagent_token');location.href='/auth.html';}
+async function init(){
+  const user=(await authed());if(!user){location.href='/auth.html';return;}
+  $('#plan-badge').textContent=user.plan;if(user.role==='admin')$('#admin-link').style.display='';
+  loadAll();
+}
+function download(name,content){const blob=new Blob([content],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href);}
+async function loadAll(){
+  try{const a=await api('/api/analyses');
+  $('#analyses').innerHTML=(a.analyses||[]).map(x=>`<div class="list-item"><div class="row"><span class="grow"><b>${esc(x.file_name)}</b><div class="meta">${fmtTs(x.created_at)}</div></span><button class="mini" onclick="exportObj(${x.id},'analysis')">Export</button></div></div>`).join('')||'<div class="list-item">No analyses.</div>';}catch(e){}
+  try{const p=await api('/api/plans');
+  $('#plans').innerHTML=(p.plans||[]).map(x=>`<div class="list-item"><div class="row"><span class="level ${esc(x.kind)}">${esc(x.kind)}</span><span class="grow"><b>${esc(x.name)}</b><div class="meta">${fmtTs(x.created_at)}</div></span><button class="mini" onclick="exportObj(${x.id},'plan')">Export</button></div></div>`).join('')||'<div class="list-item">No plans.</div>';}catch(e){}
+  try{const c=await api('/api/construction');
+  $('#construction').innerHTML=(c.projects||[]).map(x=>`<div class="list-item"><div class="row"><span class="grow"><b>${esc(x.name)}</b><div class="meta">${fmtTs(x.created_at)}${x.plan?' - plan saved':' - no plan'}</div></span>${x.plan?`<button class="mini" onclick="exportObj(${x.id},'dc')">Export Plan</button>`:''}</div></div>`).join('')||'<div class="list-item">No construction projects.</div>';}catch(e){}
+  try{const c=await api('/api/conversations');
+  $('#conversations').innerHTML=(c.conversations||[]).map(x=>`<div class="list-item"><b>${esc(x.title)}</b><div class="meta">${fmtTs(x.created_at)}</div></div>`).join('')||'<div class="list-item">No conversations.</div>';}catch(e){}
+}
+async function exportObj(id,kind){
+  let content='';
+  if(kind==='analysis'){try{const a=await api('/api/analyses');const it=(a.analyses||[]).find(x=>x.id==id);if(it)content=it.explanation||JSON.stringify(it);}catch(e){return alert(e.message);}}
+  else if(kind==='plan'){try{const p=await api('/api/plans');const it=(p.plans||[]).find(x=>x.id==id);if(it)content=it.content;}catch(e){return alert(e.message);}}
+  else if(kind==='dc'){try{const c=await api('/api/construction');const it=(c.projects||[]).find(x=>x.id==id);if(it)content=it.plan||'';}catch(e){return alert(e.message);}}
+  download('climagent_report_'+id+'.txt',content);
+}
+init();
+</script>
+</body></html>
