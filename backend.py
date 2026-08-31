@@ -385,6 +385,109 @@ async def analyze(request: Request, file: UploadFile = File(...)):
                 pass
 
 
+# ---------------------------------------------------------------------------
+# HEAT / CLIMATE DATA (direct REST access to FortyGuard, bypassing the agent)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/climate/environmental")
+def climate_environmental(request: Request, lat: float, lon: float, temperature: float,
+                          date: str = "", time: str = ""):
+    if not _rate_ok(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="Too many requests. Please wait a moment.")
+    coords = _valid_coords(lat, lon)
+    if not coords:
+        raise HTTPException(status_code=422, detail="Invalid latitude/longitude.")
+    try:
+        return {"data": json.loads(fg.env_params(coords["lat"], coords["lon"], temperature, date, time))}
+    except fg.FortyGuardError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+@app.get("/api/climate/temperature")
+def climate_temperature(request: Request, lat: float, lon: float, hours_ahead: int = 0):
+    if not _rate_ok(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="Too many requests. Please wait a moment.")
+    coords = _valid_coords(lat, lon)
+    if not coords:
+        raise HTTPException(status_code=422, detail="Invalid latitude/longitude.")
+    try:
+        if hours_ahead:
+            return {"data": json.loads(fg.forecast_temperature(coords["lat"], coords["lon"], int(hours_ahead)))}
+        return {"data": json.loads(fg.current_temperature(coords["lat"], coords["lon"]))}
+    except fg.FortyGuardError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+@app.get("/api/climate/history")
+def climate_history(request: Request, lat: float, lon: float, start_date: str, end_date: str = ""):
+    if not _rate_ok(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="Too many requests. Please wait a moment.")
+    coords = _valid_coords(lat, lon)
+    if not coords:
+        raise HTTPException(status_code=422, detail="Invalid latitude/longitude.")
+    if not start_date:
+        raise HTTPException(status_code=422, detail="start_date is required (YYYY-MM-DD).")
+    try:
+        return {"data": json.loads(fg.historical_temperatures(coords["lat"], coords["lon"], start_date, end_date))}
+    except fg.FortyGuardError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+@app.get("/api/climate/heat-stress")
+def climate_heat_stress(request: Request, lat: float, lon: float, start_date: str,
+                        end_date: str = "", threshold: float = 30.0, direction: str = "above"):
+    if not _rate_ok(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="Too many requests. Please wait a moment.")
+    coords = _valid_coords(lat, lon)
+    if not coords:
+        raise HTTPException(status_code=422, detail="Invalid latitude/longitude.")
+    if direction not in ("above", "below"):
+        raise HTTPException(status_code=422, detail="direction must be 'above' or 'below'.")
+    try:
+        return {"data": json.loads(fg.heat_exceedance(coords["lat"], coords["lon"], start_date, end_date, threshold, direction))}
+    except fg.FortyGuardError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+@app.get("/api/climate/heatmap")
+def climate_heatmap(request: Request, lat: float, lon: float, start_date: str, end_date: str = "",
+                    analytic_type: str = "tcm", threshold: float = 30.0,
+                    direction: str = "above", granularity: int = 100):
+    if not _rate_ok(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="Too many requests. Please wait a moment.")
+    coords = _valid_coords(lat, lon)
+    if not coords:
+        raise HTTPException(status_code=422, detail="Invalid latitude/longitude.")
+    try:
+        return {"data": json.loads(fg.generate_heatmap(coords["lat"], coords["lon"], start_date, end_date,
+                                                       analytic_type, threshold, direction, granularity))}
+    except fg.FortyGuardError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+@app.get("/api/climate/heat-intelligence")
+def climate_heat_intelligence(request: Request, lat: float, lon: float, temperature: float,
+                              date: str, categories: str = "geographic,environmental,urban"):
+    if not _rate_ok(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="Too many requests. Please wait a moment.")
+    coords = _valid_coords(lat, lon)
+    if not coords:
+        raise HTTPException(status_code=422, detail="Invalid latitude/longitude.")
+    try:
+        return {"data": json.loads(fg.heat_intelligence(coords["lat"], coords["lon"], temperature, date, categories))}
+    except fg.FortyGuardError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+@app.get("/api/climate/risk")
+def climate_risk(temperature: float, humidity: float = None):
+    from lib import tools
+    fn = getattr(tools.assess_heat_risk, "func", None)
+    if fn is None:
+        raise HTTPException(status_code=500, detail="Risk assessment unavailable.")
+    return {"data": json.loads(fn(temperature, humidity))}
+
+
 def _append_message(conversation_id, user_id, role, content):
     row = db.run("SELECT * FROM conversations WHERE id = ? AND user_id = ?", (conversation_id, user_id), fetch="one")
     if not row:
