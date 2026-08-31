@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Monitoring - Climagent</title><link rel="stylesheet" href="style.css"><link rel="icon" type="image/x-icon" href="/assets/favicon.ico"></head>
+<body>
+<div class="topbar">
+  <div class="logo brand"><img src="/assets/logo.png" alt="Climagent logo"><span>CLIMAGENT</span></div>
+  <button class="burger" id="burger" aria-label="Menu">&#9776;</button>
+  <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode"><span class="theme-ico-night">&#9789;</span><span class="theme-ico-day">&#9728;</span></button>
+  <nav>
+    <a class="nav-link" href="/dashboard.html">Dashboard</a>
+    <a class="nav-link" href="/workspace.html">AI Workspace</a>
+    <a class="nav-link" href="/map.html">Map</a>
+    <a class="nav-link" href="/data.html">Data Analysis</a>
+    <a class="nav-link" href="/construction.html">Construction</a>
+    <a class="nav-link" href="/cooling.html">Urban Cooling</a>
+    <a class="nav-link active" href="/monitoring.html">Monitoring</a>
+    <a class="nav-link" href="/reports.html">Reports</a>
+    <a class="nav-link" id="admin-link" href="/admin.html" style="display:none">Admin</a>
+    <span id="plan-badge" style="font-size:13px;font-weight:700;color:var(--accent)"></span>
+    <button class="logout" onclick="logout()">Logout</button>
+  </nav>
+</div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div class="logo brand"><img src="/assets/logo.png" alt="Climagent logo"><span>CLIMAGENT</span></div>
+    <button class="mini" onclick="closeDrawer()">Close</button>
+  </div>
+</div>
+<div class="drawer-overlay" id="drawer-overlay"></div>
+<main>
+  <div class="coverage" style="margin-bottom:14px">
+    <span class="tag live">&#9679; Real-Time Data Collection</span>
+    <span class="tag">Coverage: All FortyGuard Regions</span>
+    <button class="secondary" style="padding:5px 12px;font-size:12px" onclick="openOptin()">Opt-in to Real-Time Data</button>
+  </div>
+  <h2>Monitoring</h2><p class="sub">Continuous agentic monitoring with threshold alerts, HITL modes, and result history.</p>
+  <div class="card">
+    <div class="fields">
+      <input id="mLat" type="number" step="any" placeholder="Latitude">
+      <input id="mLon" type="number" step="any" placeholder="Longitude">
+      <input id="mInterval" type="number" step="any" value="60" placeholder="Interval (min)">
+      <input id="mMax" type="number" value="30" placeholder="Max runs">
+    </div>
+    <input id="mQuery" class="txt" placeholder="What to monitor, e.g. Heat risk at the site; alert if HIGH or EXTREME">
+    <div class="actions">
+      <button class="primary" onclick="startMonitor()">Start Monitor</button>
+      <button class="secondary" onclick="loadAll()">Refresh</button>
+      <button class="secondary" onclick="setMode()" id="modeBtn">HITL: suggestion</button>
+    </div>
+    <div id="err" class="err"></div>
+  </div>
+  <div class="card"><h3>Active monitors</h3><div id="monitors"></div></div>
+  <div class="card"><h3>Result history</h3><div id="results"></div></div>
+  <div class="card"><h3>Alerts</h3>
+    <div class="actions"><button class="secondary" onclick="readAlerts()">Mark alerts read</button></div>
+    <div id="alerts" style="margin-top:10px"></div>
+  </div>
+</main>
+<script src="static/app.js"></script>
+<script>
+async function logout(){try{await api('/api/auth/logout',{method:'POST'});}catch(e){}localStorage.removeItem('climagent_token');location.href='/auth.html';}
+async function init(){
+  const user=(await authed());if(!user){location.href='/auth.html';return;}
+  $('#plan-badge').textContent=user.plan;if(user.role==='admin')$('#admin-link').style.display='';
+  const mode=(await api('/api/settings/hitl-mode')).mode;$('#modeBtn').textContent='HITL: '+mode;
+  loadAll();
+}
+async function loadAll(){loadMonitors();loadResults();loadAlerts();}
+async function startMonitor(){
+  hideErr('err');
+  const lat=parseFloat($('mLat').value),lon=parseFloat($('mLon').value),q=$('mQuery').value.trim();
+  if(isNaN(lat)||isNaN(lon)){showErr('err','Enter valid latitude and longitude.');return;}
+  if(!q){showErr('err','Describe what to monitor.');return;}
+  try{await api('/api/monitors',{method:'POST',body:JSON.stringify({query:q,lat,lon,interval_min:parseFloat($('mInterval').value)||60,max_runs:parseInt($('mMax').value)||30})});$('mQuery').value='';loadMonitors();}catch(e){showErr('err',e.message);}
+}
+async function loadMonitors(){try{const m=await api('/api/monitors');
+  $('#monitors').innerHTML=(m.monitors||[]).map(x=>{let last='no runs';try{last=JSON.parse(x.last_result||'{}').recommendation||'no runs';}catch(e){}return`<div class="list-item"><div class="row"><span class="level ${esc(x.status)}">${esc(x.status)}</span><span class="grow"><b>${esc(x.query)}</b><div class="meta">lat ${x.lat}, lon ${x.lon} - every ${x.interval_min} min - ${x.run_count}/${x.max_runs} runs - last ${fmtTs(x.last_run_at)}</div></span><button class="mini" onclick="stop(${x.id})">Stop</button><button class="mini danger" onclick="del(${x.id})">Delete</button></div><div class="meta">${esc(last)}</div></div>`;}).join('')||'<div class="list-item">No monitors.</div>';}catch(e){}
+}
+async function loadResults(){try{const r=await api('/api/monitoring/results');
+  $('#results').innerHTML=(r.results||[]).slice(0,20).map(x=>{let d={};try{d=JSON.parse(x.result||'{}');}catch(e){}return`<div class="list-item"><span class="level ${esc(d.risk_level||'')}">${esc(d.risk_level||'?')}</span> ${esc(d.recommendation||'')}${d.temp_c!=null?` <b>${esc(d.temp_c)}°C</b>`:''}<div class="meta">${fmtTs(x.created_at)}</div></div>`;}).join('')||'<div class="list-item">No result history yet.</div>';}catch(e){}
+}
+async function loadAlerts(){try{const a=await api('/api/alerts');
+  $('#alerts').innerHTML=(a.alerts||[]).map(x=>`<div class="list-item"><span class="level ${esc(x.level.toLowerCase())}">${esc(x.level)}</span> ${esc(x.message)}<div class="meta">${fmtTs(x.created_at)}</div></div>`).join('')||'<div class="list-item">No alerts.</div>';}catch(e){}
+}
+async function stop(id){try{await api('/api/monitors/'+id+'/stop',{method:'POST'});loadMonitors();}catch(e){}}
+async function del(id){try{await api('/api/monitors/'+id,{method:'DELETE'});loadMonitors();}catch(e){}}
+async function readAlerts(){try{await api('/api/alerts/read',{method:'POST'});loadAlerts();}catch(e){}}
+async function setMode(){
+  const modes=['suggestion','approval','automated'];
+  try{
+    const cur=(await api('/api/settings/hitl-mode')).mode;
+    const next=modes[(modes.indexOf(cur)+1)%modes.length];
+    const r=await api('/api/settings/hitl-mode',{method:'PUT',body:JSON.stringify({mode:next})});
+    $('#modeBtn').textContent='HITL: '+r.mode;
+  }catch(e){showErr('err',e.message);}
+}
+init();
+</script>
+<div class="modal" id="optin-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeOptin()">&#10005;</button>
+    <h3>Opt-in to Real-Time Data Collection</h3>
+    <p class="sub">Request expanded <b>real-time data collection</b> across <b>all FortyGuard regions</b>. Your request is auto-acknowledged on submission.</p>
+    <div id="optin-status" class="sub" style="font-weight:600;color:var(--accent)"></div>
+    <div class="check-list">
+      <label><input type="checkbox" value="temperature" name="optin-types"> Temperature</label>
+      <label><input type="checkbox" value="forecast" name="optin-types"> Forecast</label>
+      <label><input type="checkbox" value="heatmap" name="optin-types"> Heatmap</label>
+      <label><input type="checkbox" value="humidity" name="optin-types"> Humidity</label>
+      <label><input type="checkbox" value="air_quality" name="optin-types"> Air quality</label>
+      <label><input type="checkbox" value="solar_irradiance" name="optin-types"> Solar irradiance</label>
+    </div>
+    <div class="fields">
+      <input id="optin-name" class="txt" placeholder="Name (optional)">
+      <input id="optin-email" class="txt" type="email" placeholder="Email (optional)">
+    </div>
+    <textarea id="optin-message" class="txt" placeholder="Anything else? (optional)" style="margin-bottom:10px"></textarea>
+    <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;margin-bottom:10px;cursor:pointer">
+      <input type="checkbox" id="optin-consent"> I consent to real-time climate data collection in my selected regions.
+    </label>
+    <div id="optin-err" class="err"></div>
+    <div id="optin-ok" class="status" style="text-align:center;color:var(--success)"></div>
+    <div class="actions"><button class="primary" onclick="submitOptin()">Submit Request</button></div>
+  </div>
+</div>
+</body></html>

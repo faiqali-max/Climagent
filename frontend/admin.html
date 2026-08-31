@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Admin - Climagent</title><link rel="stylesheet" href="style.css"><link rel="icon" type="image/x-icon" href="/assets/favicon.ico"></head>
+<body>
+<div class="topbar">
+  <div class="logo brand"><img src="/assets/logo.png" alt="Climagent logo"><span>CLIMAGENT</span></div>
+  <button class="burger" id="burger" aria-label="Menu">&#9776;</button>
+  <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode"><span class="theme-ico-night">&#9789;</span><span class="theme-ico-day">&#9728;</span></button>
+  <nav>
+    <a class="nav-link" href="/dashboard.html">Dashboard</a>
+    <a class="nav-link" href="/workspace.html">AI Workspace</a>
+    <a class="nav-link" href="/map.html">Map</a>
+    <a class="nav-link" href="/data.html">Data Analysis</a>
+    <a class="nav-link" href="/construction.html">Construction</a>
+    <a class="nav-link" href="/cooling.html">Urban Cooling</a>
+    <a class="nav-link" href="/monitoring.html">Monitoring</a>
+    <a class="nav-link" href="/reports.html">Reports</a>
+    <a class="nav-link active" href="/admin.html">Admin</a>
+    <span id="plan-badge" style="font-size:13px;font-weight:700;color:var(--accent)"></span>
+    <button class="logout" onclick="logout()">Logout</button>
+  </nav>
+</div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div class="logo brand"><img src="/assets/logo.png" alt="Climagent logo"><span>CLIMAGENT</span></div>
+    <button class="mini" onclick="closeDrawer()">Close</button>
+  </div>
+</div>
+<div class="drawer-overlay" id="drawer-overlay"></div>
+<main>
+  <h2>Admin Dashboard</h2><p class="sub">Manage users, subscriptions, usage, observability, monitoring, thresholds, and ads.</p>
+  <div class="card"><h3>Users</h3><div id="users" class="table-wrap"></div></div>
+  <div class="card"><h3>Opt-in requests (auto-responder)</h3><div id="optins" style="max-height:360px;overflow:auto"></div></div>
+  <div class="card"><h3>What users are asking</h3><div id="queries" style="max-height:340px;overflow:auto"></div></div>
+  <div class="card"><h3>User activity</h3><div id="activity" style="max-height:340px;overflow:auto"></div></div>
+  <div class="card"><h3>AI & tool usage</h3><div id="usage"></div></div>
+  <div class="card"><h3>Agent observability</h3><div class="table-wrap"><table class="admin" id="obs"></table></div><div id="failed" style="margin-top:10px"></div></div>
+  <div class="card"><h3>Monitoring system (all)</h3><div id="sysmon"></div>
+    <h3 style="margin-top:16px">System alerts</h3><div id="sysalerts" style="margin-top:8px"></div>
+  </div>
+  <div class="card"><h3>Risk thresholds (°C)</h3><div class="fields">
+    <input id="th-low" type="number" step="any" placeholder="low"><input id="th-moderate" type="number" step="any" placeholder="moderate"><input id="th-high" type="number" step="any" placeholder="high"><input id="th-extreme" type="number" step="any" placeholder="extreme">
+    <button class="primary" onclick="saveThresholds()">Save</button>
+  </div><div id="th-err" class="err"></div></div>
+  <div class="card"><h3>Advertisements</h3>
+    <div class="fields"><input id="ad-title" placeholder="Title"><input id="ad-body" placeholder="Body"></div>
+    <div class="actions"><button class="primary" onclick="createAd()">Add Ad</button></div>
+    <div id="ads" style="margin-top:10px"></div>
+  </div>
+  <div class="card"><h3>Ad-credit economy</h3><p class="sub">2 views = 1 credit, 1 credit = 1 AI search on the Free tier.</p>
+    <h4 style="margin:10px 0 4px">Credit ledger</h4><div id="c-ledger"></div>
+    <h4 style="margin:14px 0 4px">Ad views</h4><div id="c-views"></div>
+  </div>
+</main>
+<script src="static/app.js"></script>
+<script>
+async function logout(){try{await api('/api/auth/logout',{method:'POST'});}catch(e){}localStorage.removeItem('climagent_token');location.href='/auth.html';}
+async function init(){
+  const user=(await authed());if(!user){location.href='/auth.html';return;}
+  if(user.role!=='admin'){location.href='/app.html';return;}
+  $('#plan-badge').textContent=user.role;
+  loadAll();
+}
+async function loadAll(){loadUsers();loadUsage();loadObs();loadSys();loadThresholds();loadAds();loadCredits();loadQueries();loadActivity();loadOptins();}
+async function loadOptins(){try{const o=await api('/api/admin/opt-ins');
+  $('#optins').innerHTML=(o.optins||[]).slice(0,30).map(x=>`<div class="list-item"><div class="row"><span class="level ${esc(x.status)}">${esc(x.status)}</span><span class="grow"><b>${esc(x.user_id)}</b> - ${esc(x.email)}<div class="meta">${(x.data_types||[]).join(', ')} &middot; ${esc(x.areas)} &middot; ${fmtTs(x.created_at)}</div></span>
+    <select onchange="setOptin(${x.id},this.value)"><option ${x.status==='pending'?'selected':''}>pending</option><option ${x.status==='approved'?'selected':''}>approved</option><option ${x.status==='rejected'?'selected':''}>rejected</option></select>
+  </div><div class="meta" style="margin-top:4px">Auto-response: ${esc(x.auto_response)}</div></div>`).join('')||'<div class="list-item">No opt-in requests.</div>';}catch(e){}
+}
+async function setOptin(id,status){try{await api('/api/admin/opt-ins/'+id+'/status',{method:'POST',body:JSON.stringify({status})});loadOptins();}catch(e){alert(e.message);}}
+async function loadUsers(){try{const u=await api('/api/admin/users');
+  $('#users').innerHTML=`<table class="admin"><tr><th>ID</th><th>Email</th><th>Name</th><th>Role</th><th>Plan</th><th>Status</th><th>Credits</th><th>Actions</th></tr>${(u.users||[]).map(x=>`<tr><td>${esc(x.id)}</td><td>${esc(x.email)}</td><td>${esc(x.name)}</td><td>${esc(x.role)}</td><td>${esc(x.plan)}</td><td><span class="level ${esc(x.status)}">${esc(x.status)}</span></td><td>${Number(x.credit_balance)||0}</td><td>
+    <select onchange="setRole(${x.id},this.value)"><option ${x.role==='user'?'selected':''}>user</option><option ${x.role==='premium'?'selected':''}>premium</option><option ${x.role==='admin'?'selected':''}>admin</option></select>
+    <select onchange="setPlan(${x.id},this.value)"><option ${x.plan==='FREE'?'selected':''}>FREE</option><option ${x.plan==='PREMIUM'?'selected':''}>PREMIUM</option><option ${x.plan==='PROFESSIONAL'?'selected':''}>PROFESSIONAL</option></select>
+    <button class="mini" onclick="toggleSuspend(${x.id},${x.status==='active'})">${x.status==='active'?'Suspend':'Activate'}</button>
+  </td></tr>`).join('')||'<tr><td colspan="8">No users</td></tr>'}</table>`;}catch(e){}
+}
+async function loadQueries(){try{const q=await api('/api/admin/queries');
+  $('#queries').innerHTML=(q.queries||[]).slice(0,50).map(x=>`<div class="list-item"><b>${esc(x.user_id)}</b> &mdash; ${esc(x.content_preview)}<div class="meta">${esc(x.title)} - ${fmtTs(x.created_at)}</div></div>`).join('')||'<div class="list-item">No user messages yet.</div>';}catch(e){}
+}
+async function loadActivity(){try{const a=await api('/api/admin/activity');
+  $('#activity').innerHTML=(a.activity||[]).slice(0,50).map(x=>`<div class="list-item"><span class="level">${esc(x.kind)}</span> <b>${esc(x.user_id)}</b> &mdash; ${esc(x.detail)}<div class="meta">${fmtTs(x.created_at)}</div></div>`).join('')||'<div class="list-item">No activity yet.</div>';}catch(e){}
+}
+async function setRole(id,role){try{await api('/api/admin/users/'+id+'/role',{method:'POST',body:JSON.stringify({role})});}catch(e){alert(e.message);}}
+async function setPlan(id,plan){try{await api('/api/admin/users/'+id+'/plan',{method:'POST',body:JSON.stringify({plan})});}catch(e){alert(e.message);}}
+async function toggleSuspend(id,active){try{await api('/api/admin/users/'+id+'/status',{method:'POST',body:JSON.stringify({status:active?'suspended':'active'})});loadUsers();}catch(e){alert(e.message);}}
+async function loadUsage(){try{const u=await api('/api/admin/usage');
+  $('#usage').innerHTML=`<p class="sub">Total: ${u.total_records} | Today: ${u.today}</p><p class="sub">By kind: ${(u.by_kind||[]).map(k=>`${esc(k.kind)}: ${k.c}`).join(' | ')}</p><p class="sub">Top users: ${(u.by_user||[]).map(k=>`${esc(k.user_id)}: ${k.c}`).join(' | ')}</p>`;}catch(e){}
+}
+async function loadObs(){try{const o=await api('/api/admin/observability');const e=o.evaluation||{};
+  $('#obs').innerHTML=`<tr><th>Runs</th><th>Completion</th><th>Errors</th><th>Avg duration</th><th>Activity 24h</th></tr><tr><td>${e.runs||0}</td><td>${e.completion_rate}%</td><td>${e.errors||0}</td><td>${e.avg_duration_ms} ms</td><td>${e.activity_last_24h||0}</td></tr>`;
+  $('#failed').innerHTML=(o.failed_runs||[]).length?`<h3 style="margin:10px 0 6px">Failed workflows</h3>`+(o.failed_runs||[]).slice(0,10).map(x=>`<div class="list-item">${esc(x.error||'error')}<div class="meta">${fmtTs(x.created_at)}</div></div>`).join(''):'<div class="list-item">No failed runs.</div>';}catch(e){}
+}
+async function loadSys(){try{const m=await api('/api/admin/monitors');
+  $('#sysmon').innerHTML=(m.monitors||[]).map(x=>`<div class="list-item"><span class="level ${esc(x.status)}">${esc(x.status)}</span> ${esc(x.query)}<div class="meta">user ${esc(x.user_id)} - ${x.run_count}/${x.max_runs} runs</div></div>`).join('')||'<div class="list-item">No monitors.</div>';}catch(e){}
+  try{const a=await api('/api/admin/alerts');
+  $('#sysalerts').innerHTML=(a.alerts||[]).slice(0,20).map(x=>`<div class="list-item"><span class="level ${esc(x.level.toLowerCase())}">${esc(x.level)}</span> ${esc(x.message)}<div class="meta">${fmtTs(x.created_at)}</div></div>`).join('')||'<div class="list-item">No alerts.</div>';}catch(e){}
+}
+async function loadThresholds(){try{const t=await api('/api/admin/thresholds');$('th-low').value=t.thresholds.low;$('th-moderate').value=t.thresholds.moderate;$('th-high').value=t.thresholds.high;$('th-extreme').value=t.thresholds.extreme;}catch(e){}}
+async function saveThresholds(){hideErr('th-err');try{await api('/api/admin/thresholds',{method:'PUT',body:JSON.stringify({low:parseFloat($('th-low').value),moderate:parseFloat($('th-moderate').value),high:parseFloat($('th-high').value),extreme:parseFloat($('th-extreme').value)})});alert('Thresholds saved.');}catch(e){showErr('th-err',e.message);}}
+async function loadAds(){try{const a=await api('/api/admin/ads');
+  $('#ads').innerHTML=(a.ads||[]).map(x=>`<div class="list-item"><div class="row"><span class="level ${x.active?'active':'suspended'}">${x.active?'active':'inactive'}</span><span class="grow"><b>${esc(x.title)}</b><div class="meta">${esc(x.body)}</div></span><button class="mini" onclick="toggleAd(${x.id},${x.active})">${x.active?'Deactivate':'Activate'}</button><button class="mini danger" onclick="delAd(${x.id})">Delete</button></div></div>`).join('')||'<div class="list-item">No ads.</div>';}catch(e){}
+}
+async function loadCredits(){try{const l=await api('/api/admin/credit-ledger');
+  $('#c-ledger').innerHTML=(l.ledger||[]).slice(0,20).map(x=>`<div class="list-item"><span class="level ${x.delta>0?'active':'error'}">${x.delta>0?'+':''}${x.delta}</span> <b>${esc(x.reason)}</b> - user ${esc(x.user_id)}<div class="meta">${fmtTs(x.created_at)}${x.detail?' - '+esc(x.detail):''}</div></div>`).join('')||'<div class="list-item">No ledger entries.</div>';}catch(e){}
+  try{const v=await api('/api/admin/ad-views');
+  $('#c-views').innerHTML=(v.views||[]).slice(0,20).map(x=>`<div class="list-item">user ${esc(x.user_id)} watched ad #${x.ad_id}<div class="meta">${fmtTs(x.created_at)}</div></div>`).join('')||'<div class="list-item">No ad views.</div>';}catch(e){}
+}
+async function createAd(){try{await api('/api/admin/ads',{method:'POST',body:JSON.stringify({title:$('ad-title').value.trim(),body:$('ad-body').value.trim(),image_url:'',link_url:''})});$('ad-title').value='';$('ad-body').value='';loadAds();}catch(e){alert(e.message);}}
+async function toggleAd(id,active){try{const a=(await api('/api/admin/ads')).ads||[];const ad=a.find(x=>x.id==id);if(ad)await api('/api/admin/ads/'+id,{method:'PUT',body:JSON.stringify({title:ad.title,body:ad.body,image_url:ad.image_url||'',link_url:ad.link_url||'',active:!active})});loadAds();}catch(e){alert(e.message);}}
+async function delAd(id){try{await api('/api/admin/ads/'+id,{method:'DELETE'});loadAds();}catch(e){alert(e.message);}}
+init();
+</script>
+</body></html>

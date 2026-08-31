@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Climagent - Climate Intelligence Platform</title><link rel="stylesheet" href="style.css"><link rel="icon" type="image/x-icon" href="/assets/favicon.ico"><style>
+.hero{text-align:center;padding:80px 20px 40px}
+.hero h1{font-size:42px;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:12px}
+.hero .sub{font-size:16px;color:var(--muted);max-width:700px;margin:0 auto 30px}
+.feature-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px;margin:40px 0}
+.feature-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px}
+.feature-card h3{color:var(--accent);margin-bottom:6px}
+.pricing-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px;margin:40px 0}
+.price-card{background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:24px;text-align:center}
+.price-card.highlight{border-color:var(--accent)}
+.price-card h3{margin-bottom:8px}
+.price-card .price{font-size:32px;font-weight:700;color:var(--accent);margin:10px 0}
+.price-card ul{text-align:left;list-style:none;margin:16px 0}
+.price-card li{padding:6px 0;border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)}
+.price-card li::before{content:"[+] ";color:var(--accent)}
+.use-cases{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin:30px 0}
+.use-case{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px}
+.use-case h4{color:var(--accent2);margin-bottom:4px}
+.cta{text-align:center;padding:60px 20px}
+.cta h2{font-size:24px;margin-bottom:14px}
+</style></head>
+<body>
+<div class="hero">
+  <h1>CLIMAGENT</h1>
+  <div class="sub">Autonomous AI-powered climate intelligence platform. 12 specialized agents reason through extreme heat, urban cooling, worker safety, construction planning, and HVAC optimization using live data and validated knowledge.</div>
+  <div style="display:flex;gap:12px;justify-content:center">
+    <a href="auth.html?mode=signup"><button class="primary" style="font-size:16px;padding:14px 28px">Get Started Free</button></a>
+    <a href="app.html"><button class="secondary" style="font-size:16px;padding:14px 28px">Try Demo</button></a>
+  </div>
+</div>
+<div class="card" style="max-width:1000px;margin:0 auto">
+  <h2>How it Works</h2>
+  <div class="sub">User Goal -> Manager Agent -> Planning -> Tool Selection -> FortyGuard/Data -> Analysis -> Specialized Agent -> QA -> Recommendation -> Verification -> Memory -> Controlled Loop</div>
+</div>
+<div style="max-width:1000px;margin:0 auto;padding:0 20px">
+  <h2>Features</h2>
+  <div class="feature-grid">
+    <div class="feature-card"><h3>Agentic AI</h3><p class="sub">12 specialized agents coordinate through a Manager Agent with QA validation and memory.</p></div>
+    <div class="feature-card"><h3>Live Climate Data</h3><p class="sub">Real-time data collection covering all FortyGuard regions for temperature, forecasts, heatmaps, and environmental parameters.</p></div>
+    <div class="feature-card"><h3>Heat Risk Analysis</h3><p class="sub">Automated WBGT, heat index scoring with configurable thresholds and safety recommendations.</p></div>
+    <div class="feature-card"><h3>Construction Safety</h3><p class="sub">Heat-aware work schedules, break plans, and emergency preparedness recommendations.</p></div>
+    <div class="feature-card"><h3>Urban Cooling</h3><p class="sub">Heatmap analysis, hotspots identification, and prioritized cooling interventions.</p></div>
+    <div class="feature-card"><h3>Data Analysis</h3><p class="sub">Upload CSV/Excel/JSON for AI-powered anomaly detection, trends, correlations, and insights.</p></div>
+    <div class="feature-card"><h3>HVAC Optimization</h3><p class="sub">Proactive cooling strategies, scheduling, and energy optimization recommendations.</p></div>
+    <div class="feature-card"><h3>Continuous Monitoring</h3><p class="sub">Scheduled agent loops with alerts, HITL approval, and risk-level tracking.</p></div>
+  </div>
+</div>
+<div style="max-width:1000px;margin:0 auto;padding:0 20px">
+  <h2>Use Cases</h2>
+  <div class="use-cases">
+    <div class="use-case"><h4>Construction Companies</h4><p class="sub">Heat-aware scheduling, worker safety protocols, emergency plans.</p></div>
+    <div class="use-case"><h4>Urban Planners</h4><p class="sub">Heat island mapping, cooling interventions, green infrastructure planning.</p></div>
+    <div class="use-case"><h4>Facility Managers</h4><p class="sub">HVAC scheduling, energy optimization, building heat management.</p></div>
+    <div class="use-case"><h4>Public Safety</h4><p class="sub">Extreme heat warnings, shelter coordination, vulnerable populations.</p></div>
+    <div class="use-case"><h4>Researchers</h4><p class="sub">Climate data analysis, trend identification, environmental research.</p></div>
+    <div class="use-case"><h4>Sustainability Teams</h4><p class="sub">Climate action planning, mitigation strategies, emission tracking.</p></div>
+  </div>
+</div>
+<div style="max-width:1000px;margin:0 auto;padding:0 20px">
+  <h2>Pricing</h2>
+  <div class="pricing-grid">
+    <div class="price-card">
+      <h3>Free</h3><div class="price">$0/mo</div>
+      <ul><li>10 AI requests/day</li><li>1 monitoring task</li><li>3 projects</li><li>5 file uploads</li><li>Community support</li></ul>
+      <a href="auth.html?mode=signup"><button class="secondary" style="width:100%">Start Free</button></a>
+    </div>
+    <div class="price-card highlight">
+      <h3>Premium</h3><div class="price">$29/mo</div>
+      <ul><li>100 AI requests/day</li><li>10 monitoring tasks</li><li>20 projects</li><li>50 file uploads</li><li>Priority support</li></ul>
+      <a href="auth.html?mode=signup"><button class="primary" style="width:100%">Upgrade to Premium</button></a>
+    </div>
+    <div class="price-card">
+      <h3>Professional</h3><div class="price">$99/mo</div>
+      <ul><li>1000 AI requests/day</li><li>50 monitoring tasks</li><li>100 projects</li><li>500 file uploads</li><li>Team features ready</li></ul>
+      <a href="auth.html?mode=signup"><button class="secondary" style="width:100%">Contact Sales</button></a>
+    </div>
+  </div>
+</div>
+<div class="cta">
+  <h2>Ready to Start?</h2>
+  <div class="sub">Sign up free and start using AI-powered climate intelligence today.</div>
+  <a href="auth.html?mode=signup"><button class="primary" style="font-size:16px;padding:14px 28px">Create Free Account</button></a>
+</div>
+<div style="text-align:center;padding:30px;color:var(--muted);font-size:12px">Climagent Climate Intelligence Platform. Built with LangGraph + FortyGuard.</div>
+</body></html>
