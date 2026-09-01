@@ -191,9 +191,22 @@ def knowledge_base(query: str) -> str:
     )
 
 
-def _read_table(path):
+def _read_table(path, data=None):
     ext = path.lower().rsplit(".", 1)[-1]
-    if ext == "csv":
+    if data is not None:
+        import io
+        if ext == "csv":
+            try:
+                df = pd.read_csv(io.BytesIO(data))
+            except UnicodeDecodeError:
+                df = pd.read_csv(io.BytesIO(data), encoding="latin-1")
+        elif ext in ("xlsx", "xls"):
+            df = pd.read_excel(io.BytesIO(data))
+        elif ext == "json":
+            df = pd.read_json(io.BytesIO(data))
+        else:
+            raise ValueError("Unsupported file type. Upload a CSV, Excel, or JSON file.")
+    elif ext == "csv":
         try:
             df = pd.read_csv(path)
         except UnicodeDecodeError:
@@ -217,8 +230,8 @@ def _read_table(path):
     return df
 
 
-def analyze_dataset(path):
-    df = _read_table(path)
+def analyze_dataset(path, data=None):
+    df = _read_table(path, data)
     numeric = list(df.select_dtypes(include=[np.number]).columns)
     datetime_cols = [c for c in df.columns if pd.api.types.is_datetime64_any_dtype(df[c])]
     object_cols = [c for c in df.columns if c not in numeric and c not in datetime_cols]

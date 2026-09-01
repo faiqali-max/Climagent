@@ -53,3 +53,31 @@ def status():
 def client():
     """Return an authenticated Supabase client, or raise SupabaseGatewayError."""
     return _client()
+
+
+def storage_bucket():
+    return os.getenv("SUPABASE_STORAGE_BUCKET", "climagent-files").strip()
+
+
+def upload_file(path_in_bucket, content_bytes, content_type="application/octet-stream"):
+    """Upload bytes to a Supabase Storage bucket. Returns a Supabase storage response path."""
+    sb = _client()
+    try:
+        sb.storage.from_(storage_bucket()).upload(
+            path_in_bucket, content_bytes, {"content-type": content_type}
+        )
+    except Exception:
+        # 'upsert' retry handles already-existing keys on retried invocations
+        sb.storage.from_(storage_bucket()).upload(
+            path_in_bucket, content_bytes, {"content-type": content_type, "upsert": "true"}
+        )
+    return path_in_bucket
+
+
+def public_url(path_in_bucket):
+    sb = _client()
+    try:
+        return sb.storage.from_(storage_bucket()).get_public_url(path_in_bucket)
+    except Exception:
+        return None
+

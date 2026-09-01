@@ -316,25 +316,55 @@ def _connect():
 
 
 def init_db():
+    from lib import storage
+    backend = storage.backend_name()
+    if backend == "postgres":
+        _init_pg(storage)
+        return
+    _init_sqlite()
+
+
+def _init_sqlite():
     with _lock:
         conn = _connect()
         try:
             conn.executescript(SCHEMA)
-            count = conn.execute("SELECT COUNT(*) AS c FROM knowledge").fetchone()["c"]
-            if count == 0:
-                conn.executemany(
-                    "INSERT INTO knowledge (topic, content, source) VALUES (?, ?, ?)", SEED_KNOWLEDGE
-                )
-            ad_count = conn.execute("SELECT COUNT(*) AS c FROM ads").fetchone()["c"]
-            if ad_count == 0:
-                conn.executemany(
-                    "INSERT INTO ads (title, body, image_url, link_url, active, created_at) VALUES (?, ?, ?, ?, 1, ?)",
-                    [(t, b, i, l, time.time()) for (t, b, i, l) in SEED_ADS],
-                )
+            _seed_sqlite(conn)
             _migrate(conn)
             conn.commit()
         finally:
             conn.close()
+
+
+def _seed_sqlite(conn):
+    count = conn.execute("SELECT COUNT(*) AS c FROM knowledge").fetchone()["c"]
+    if count == 0:
+        conn.executemany(
+            "INSERT INTO knowledge (topic, content, source) VALUES (?, ?, ?)", SEED_KNOWLEDGE
+        )
+    ad_count = conn.execute("SELECT COUNT(*) AS c FROM ads").fetchone()["c"]
+    if ad_count == 0:
+        conn.executemany(
+            "INSERT INTO ads (title, body, image_url, link_url, active, created_at) VALUES (?, ?, ?, ?, 1, ?)",
+            [(t, b, i, l, time.time()) for (t, b, i, l) in SEED_ADS],
+        )
+
+
+def _init_pg(storage):
+    """Bootstrap the Postgres/Supabase schema + seeds when that backend is active."""
+    from pathlib import Path
+    schema_path = Path(__file__).resolve().parent.parent / "supabase" / "schema.sql"
+    if schema_path.exists():
+        storage.execute_script(schema_path.read_text())
+    kcount = run("SELECT COUNT(*) AS c FROM knowledge", fetch="one") or {"c": 0}
+    if not kcount.get("c"):
+        for (t, c, s) in SEED_KNOWLEDGE:
+            run("INSERT INTO knowledge (topic, content, source) VALUES (?, ?, ?)", (t, c, s))
+    acount = run("SELECT COUNT(*) AS c FROM ads", fetch="one") or {"c": 0}
+    if not acount.get("c"):
+        for (t, b, i, l) in SEED_ADS:
+            run("INSERT INTO ads (title, body, image_url, link_url, active, created_at) "
+                "VALUES (?, ?, ?, ?, 1, ?)", (t, b, i, l, time.time()))
 
 
 def _migrate(conn):
@@ -358,16 +388,7 @@ def set_setting(key, value):
 
 
 def run(sql, params=(), fetch="all"):
-    with _lock:
-        conn = _connect()
-        try:
-            cur = conn.execute(sql, params)
-            if sql.strip().upper().startswith(("INSERT", "UPDATE", "DELETE", "REPLACE")):
-                conn.commit()
-                return cur.lastrowid
-            rows = cur.fetchall()
-            if fetch == "all":
-                return [dict(r) for r in rows]
-            return dict(rows[0]) if rows else None
-        finally:
-            conn.close()
+    # Route through the storage dispatcher (SQLite locally, Supabase/Postgres when
+    # DATABASE_URL is configured). Same interface; call sites are unchanged.
+    from lib import storage
+    return storage.run(sql, params, fetch)

@@ -358,12 +358,10 @@ async def analyze(request: Request, file: UploadFile = File(...)):
     content = await file.read()
     if len(content) > MAX_UPLOAD:
         raise HTTPException(status_code=413, detail="File too large (max 30 MB).")
-    STORAGE_DIR.mkdir(parents=True, exist_ok=True)
     stored = f"{uuid.uuid4().hex}.{ext}"
-    path = STORAGE_DIR / stored
     try:
-        path.write_bytes(content)
-        result = await agents.analyze_file(str(path), name, user_id)
+        # Analyze from in-memory bytes so no local disk is required (serverless-safe).
+        result = await agents.analyze_file(stored, name, user_id, data=content)
         db.run(
             "INSERT INTO uploaded_files (user_id, original_name, stored_name, size, created_at) VALUES (?, ?, ?, ?, ?)",
             (user_id, name[:255], stored, len(content), time.time()),
@@ -372,6 +370,15 @@ async def analyze(request: Request, file: UploadFile = File(...)):
             "INSERT INTO analysis_results (user_id, file_name, explanation, data, created_at) VALUES (?, ?, ?, ?, ?)",
             (user_id, name[:255], result["explanation"][:4000], json.dumps(result["data"], default=str)[:4000], time.time()),
         )
+        # Persist the raw file: to Supabase Storage when enabled, else local disk.
+        if supabase_gateway.is_enabled():
+            try:
+                supabase_gateway.upload_file(f"uploads/{stored}", content)
+            except Exception:
+                pass
+        else:
+            STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+            (STORAGE_DIR / stored).write_bytes(content)
         return result
     except AgentConfigError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
@@ -379,12 +386,6 @@ async def analyze(request: Request, file: UploadFile = File(...)):
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Analysis failed: {exc}")
-    finally:
-        if path.exists():
-            try:
-                path.unlink()
-            except OSError:
-                pass
 
 
 # ---------------------------------------------------------------------------
