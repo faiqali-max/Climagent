@@ -131,11 +131,17 @@ def _credit_view(user):
     }
 
 
+_SERVERLESS = os.getenv("VERCEL", "") == "1" or os.getenv("SERVERLESS", "").lower() in ("1", "true")
+
+
 @app.on_event("startup")
 def _startup():
     init_db()
     authlib.bootstrap_admin()
-    monitoring.start_scheduler()
+    # On serverless hosts (Vercel) there is no long-lived process, so the in-process
+    # scheduler is disabled; monitors run via POST /api/monitors/run-due (cron).
+    if not _SERVERLESS and os.getenv("ENABLE_SCHEDULER", "1") != "0":
+        monitoring.start_scheduler()
 
 
 @app.on_event("shutdown")
@@ -784,6 +790,29 @@ def delete_monitor(request: Request, mid: int):
     user = _auth_user(request)
     monitoring.delete_monitor(f"u{user['id']}", mid)
     return {"ok": True}
+
+
+@app.post("/api/monitors/run-due")
+async def monitors_run_due(request: Request):
+    """Run all due monitors. Intended to be invoked by an external cron on serverless
+    hosts (Vercel Cron -> this endpoint) where no in-process scheduler exists.
+    Accepts an optional admin bearer token; on serverless the cron secret env is used."""
+    token = _bearer(request)
+    if token:
+        user = authlib.user_by_token(token)
+        if not user or user["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required.")
+    elif not _SERVERLESS:
+        # On a normal host allow open access only if no auth header sent (defensible default:
+        # still require auth unless explicitly run locally for testing).
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    else:
+        secret = os.getenv("CRON_SECRET", "")
+        header = request.headers.get("X-Cron-Secret", "")
+        if not secret or header != secret:
+            raise HTTPException(status_code=401, detail="Invalid cron secret.")
+    await monitoring.tick()
+    return {"ok": True, "ran": "due monitors processed"}
 
 
 @app.get("/api/monitoring/results")
