@@ -259,6 +259,17 @@ CREATE TABLE IF NOT EXISTS optins (
   created_at REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_optins_user ON optins(user_id);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'info',
+  title TEXT NOT NULL,
+  body TEXT NOT NULL DEFAULT '',
+  read INTEGER NOT NULL DEFAULT 0,
+  created_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read);
 """
 
 SEED_KNOWLEDGE = [

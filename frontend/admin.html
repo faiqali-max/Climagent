@@ -30,6 +30,12 @@
 <main>
   <h2>Admin Dashboard</h2><p class="sub">Manage users, subscriptions, usage, observability, monitoring, thresholds, and ads.</p>
   <div class="card"><h3>Users</h3><div id="users" class="table-wrap"></div></div>
+  <div class="card"><h3>Broadcast app update</h3>
+    <div class="fields"><input id="bc-title" maxlength="255" placeholder="Title (e.g. Climagent has been updated)"><input id="bc-body" maxlength="2000" placeholder="Message body"></div>
+    <label style="display:flex;align-items:center;gap:6px;margin:6px 0"><input type="checkbox" id="bc-email" style="width:auto"> Also send via email (requires SMTP)</label>
+    <button class="primary" onclick="sendBroadcast()">Send to all users</button>
+    <div id="bc-ok" style="margin-top:8px"></div>
+  </div>
   <div class="card"><h3>Opt-in requests (auto-responder)</h3><div id="optins" style="max-height:360px;overflow:auto"></div></div>
   <div class="card"><h3>What users are asking</h3><div id="queries" style="max-height:340px;overflow:auto"></div></div>
   <div class="card"><h3>User activity</h3><div id="activity" style="max-height:340px;overflow:auto"></div></div>
@@ -62,6 +68,17 @@ async function init(){
   loadAll();
 }
 async function loadAll(){loadUsers();loadUsage();loadObs();loadSys();loadThresholds();loadAds();loadCredits();loadQueries();loadActivity();loadOptins();}
+async function sendBroadcast(){
+  const ok=$('bc-ok');if(ok)ok.textContent='';
+  const title=($('bc-title').value||'').trim(),body=($('bc-body').value||'').trim();
+  if(!title||!body){if(ok){ok.textContent='Enter both a title and body.';ok.style.color='var(--danger)';}return;}
+  try{
+    const r=await api('/api/notifications/broadcast',{method:'POST',body:JSON.stringify({title,body,email:$('bc-email').checked})});
+    if(ok){ok.textContent='Sent to '+r.notified+' user(s).';ok.style.color='var(--accent)';}
+    $('bc-title').value='';$('bc-body').value='';$('bc-email').checked=false;
+  }catch(e){if(ok){ok.textContent=e.message;ok.style.color='var(--danger)';}}
+}
+
 async function loadOptins(){try{const o=await api('/api/admin/opt-ins');
   $('#optins').innerHTML=(o.optins||[]).slice(0,30).map(x=>`<div class="list-item"><div class="row"><span class="level ${esc(x.status)}">${esc(x.status)}</span><span class="grow"><b>${esc(x.user_id)}</b> - ${esc(x.email)}<div class="meta">${(x.data_types||[]).join(', ')} &middot; ${esc(x.areas)} &middot; ${fmtTs(x.created_at)}</div></span>
     <select onchange="setOptin(${x.id},this.value)"><option ${x.status==='pending'?'selected':''}>pending</option><option ${x.status==='approved'?'selected':''}>approved</option><option ${x.status==='rejected'?'selected':''}>rejected</option></select>

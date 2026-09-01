@@ -149,3 +149,22 @@ table.admin tr:hover td{background:color-mix(in srgb,var(--accent) 5%,transparen
   .topbar{padding:8px 12px}
   h1{font-size:22px}
 }
+
+/* ---------- Notifications (bell + dropdown) ---------- */
+.notif-wrap{position:relative;display:inline-flex;align-items:center}
+.notif-bell{position:relative;background:none;border:1px solid var(--line);border-radius:8px;color:var(--text);padding:6px 9px;font-size:15px;cursor:pointer;line-height:1}
+.notif-bell .notif-ico{font-style:normal}
+.notif-badge{position:absolute;top:-7px;right:-7px;min-width:16px;height:16px;padding:0 4px;border-radius:99px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1}
+.notif-drop{position:absolute;top:calc(100% + 8px);right:0;width:320px;max-width:86vw;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);z-index:200;overflow:hidden}
+.notif-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.notif-head button.mini{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;font-size:11px;padding:3px 8px;cursor:pointer}
+.notif-list{max-height:320px;overflow:auto}
+.notif-item{padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer}
+.notif-item:hover{background:var(--panel2)}
+.notif-item.unread{background:rgba(45,212,191,.06)}
+.notif-item.unread .notif-title{font-weight:700}
+.notif-title{font-size:13px;color:var(--text)}
+.notif-body{font-size:12px;color:var(--muted);margin-top:2px;word-break:break-word}
+.notif-time{font-size:10px;color:var(--muted);margin-top:4px;opacity:.8}
+.notif-empty{padding:16px;text-align:center;color:var(--muted);font-size:12px}
+@media(max-width:860px){.notif-drop{right:-40px}}
