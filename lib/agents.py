@@ -313,11 +313,11 @@ async def run_chat(user_message, location=None, date="", user_id="default"):
         raise
 
 
-async def analyze_file(path, file_name, user_id="default"):
+async def analyze_file(path, file_name, user_id="default", data=None):
     run_id = observability.start_run(user_id, f"file analysis: {file_name}")
     t0 = time.time()
     llm = get_llm()
-    data = await asyncio.to_thread(tools.analyze_dataset, path)
+    data = await asyncio.to_thread(tools.analyze_dataset, path, data)
     summary = tools.dataset_text(data)
     agent = _build_agent(llm, DATA_PROMPT, [tools.dataset_summary, tools.explore_dataset])
     prompt = (f"Analyze the uploaded file '{file_name}'. Pre-computed summary:\n{summary}\n"
