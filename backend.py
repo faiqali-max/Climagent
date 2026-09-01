@@ -1,4 +1,5 @@
 import json
+import os
 import time
 import uuid
 from pathlib import Path
@@ -9,7 +10,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from lib import agents, admin, billing, evaluation, memory, monitoring, observability, optin, plans
+from lib import agents, admin, billing, evaluation, memory, monitoring, notify, observability, optin, plans
 from lib import adsense, credits, google_gateway, payoneer, supabase_gateway
 from lib import fortyguard as fg
 from lib import auth as authlib
@@ -222,6 +223,7 @@ def login(request: Request, payload: LoginRequest):
     except authlib.AuthError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
     token = authlib.create_session(user["id"])
+    notify.on_login(user)
     return {"token": token, "user": authlib.public_user(user)}
 
 
@@ -486,6 +488,37 @@ def climate_risk(temperature: float, humidity: float = None):
     if fn is None:
         raise HTTPException(status_code=500, detail="Risk assessment unavailable.")
     return {"data": json.loads(fn(temperature, humidity))}
+
+
+# ---------------------------------------------------------------------------
+# NOTIFICATIONS (in-app + email; login + app-update broadcast)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/notifications")
+def notifications(request: Request):
+    authed = _auth_user(request)
+    return notify.list_for_user(f"u{authed['id']}")
+
+
+@app.post("/api/notifications/read")
+def notifications_read(request: Request, nid: int = None):
+    authed = _auth_user(request)
+    notify.mark_read(f"u{authed['id']}", nid)
+    return {"ok": True}
+
+
+class BroadcastRequest(BaseModel):
+    title: str = Field(..., min_length=1, max_length=255)
+    body: str = Field(..., min_length=1, max_length=2000)
+    email: bool = False
+
+
+@app.post("/api/notifications/broadcast")
+def notifications_broadcast(request: Request, payload: BroadcastRequest):
+    authed = _auth_user(request, admin_only=True)
+    html = f"<p>{payload.body}</p>" if payload.email else ""
+    count = notify.create_broadcast(payload.title, payload.body, html)
+    return {"ok": True, "notified": count}
 
 
 def _append_message(conversation_id, user_id, role, content):

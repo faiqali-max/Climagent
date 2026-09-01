@@ -122,3 +122,59 @@ async function submitOptin(){
     if(err)err.style.display='none';
   }catch(e){if(err){err.textContent=e.message;err.style.display='block';}}
 }
+
+// ---------- Notifications (in-app bell + unread badge) ----------
+let NOTIF_OPEN=false;
+function notifBadge(n){const b=$('notif-badge');if(b)b.textContent=n>0?String(n):'';if(b)b.style.display=n>0?'':'none';}
+function buildNotifBell(){
+  if($('notif-wrap'))return;
+  const tb=document.querySelector('.topbar');
+  if(!tb)return;
+  const wrap=document.createElement('div');wrap.id='notif-wrap';wrap.className='notif-wrap';
+  wrap.innerHTML=`<button class="notif-bell" onclick="toggleNotif()" aria-label="Notifications">
+      <span class="notif-ico">&#128276;</span><span id="notif-badge" class="notif-badge" style="display:none"></span>
+    </button>
+    <div id="notif-drop" class="notif-drop" style="display:none">
+      <div class="notif-head"><b>Notifications</b><button class="mini" onclick="markAllNotif()">Mark all read</button></div>
+      <div id="notif-list" class="notif-list"><div class="notif-empty">No new notifications.</div></div>
+    </div>`;
+  tb.appendChild(wrap);
+  document.addEventListener('click',function(ev){if(!wrap.contains(ev.target)){NOTIF_OPEN=false;const d=$('notif-drop');if(d)d.style.display='none';}});
+}
+async function loadNotif(){
+  buildNotifBell();
+  try{
+    const r=await api('/api/notifications');
+    notifBadge(r.unread||0);
+    const list=$('notif-list');if(!list)return;
+    const items=r.notifications||[];
+    if(!items.length){list.innerHTML='<div class="notif-empty">No new notifications.</div>';return;}
+    list.innerHTML=items.map(n=>`<div class="notif-item ${n.read?'':'unread'}" onclick="readNotif(${n.id})">
+      <div class="notif-title">${esc(n.title)}</div>
+      <div class="notif-body">${esc(n.body)}</div>
+      <div class="notif-time">${fmtTs(n.created_at)}</div>
+    </div>`).join('');
+  }catch(e){}
+}
+function toggleNotif(){
+  NOTIF_OPEN=!NOTIF_OPEN;
+  const d=$('notif-drop');if(d)d.style.display=NOTIF_OPEN?'block':'none';
+  if(NOTIF_OPEN){const b=$('notif-badge');if(b){b.style.display='none';b.textContent='';}}
+}
+async function readNotif(id){
+  try{await api('/api/notifications/read',{method:'POST',body:JSON.stringify({nid:id})});}catch(e){}
+  loadNotif();
+}
+async function markAllNotif(){
+  try{await api('/api/notifications/read',{method:'POST',body:'{}'});}catch(e){}
+  NOTIF_OPEN=false;const d=$('notif-drop');if(d)d.style.display='none';
+  loadNotif();
+}
+function initNotif(){
+  if(!TOKEN)return;
+  buildNotifBell();
+  loadNotif();
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initNotif);else initNotif();
+// Refresh notifications on window focus so login/update events show up promptly
+window.addEventListener('focus',()=>{if(TOKEN)loadNotif();});
